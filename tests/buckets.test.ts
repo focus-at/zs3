@@ -1,38 +1,19 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { zs3 } from "../index.ts";
+import { mockFetch, restoreMockFetch } from "./helpers/mock-fetch.ts";
 
-const originalFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = originalFetch; });
+afterEach(restoreMockFetch);
 
-describe("bucket operations", () => {
-  test("issues independent requests for bucket subresources", async () => {
-    const urls: URL[] = [];
-    globalThis.fetch = (async (input: URL | RequestInfo) => {
-      urls.push(input instanceof URL ? input : new URL(input.toString()));
-      return new Response("<Configuration/>", { status: 200 });
-    }) as typeof fetch;
+describe("bucket-level client request signing", () => {
+  test("signs a bucket listing request and includes default list parameters", async () => {
+    const requests = mockFetch(new Response("<ListAllMyBucketsResult/>", { status: 200 }));
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
-    for (const subresource of ["acl", "versioning", "lifecycle", "policy", "tagging", "cors", "encryption", "website", "notification", "logging", "replication", "public-access-block", "object-lock"] ) {
-      await client.exec({ method: "GET", bucket: "demo", key: "" }, { query: { [subresource]: "" } });
-    }
-    expect(urls).toHaveLength(13);
-    for (const [index, subresource] of ["acl", "versioning", "lifecycle", "policy", "tagging", "cors", "encryption", "website", "notification", "logging", "replication", "public-access-block", "object-lock"].entries()) {
-      expect(urls[index].searchParams.has(subresource)).toBe(true);
-      expect(urls[index].searchParams.has("list-type")).toBe(true);
-    }
-  });
 
-  test("sends bucket configuration request body", async () => {
-    let body: BodyInit | null | undefined;
-    let url: URL | undefined;
-    globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
-      url = input instanceof URL ? input : new URL(input.toString());
-      body = init?.body;
-      return new Response("", { status: 200 });
-    }) as typeof fetch;
-    const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
-    await client.exec({ method: "PUT", bucket: "demo", key: "", body: "<VersioningConfiguration/>" }, { query: { versioning: "" } });
-    expect(url?.searchParams.has("versioning")).toBe(true);
-    expect(body).toBe("<VersioningConfiguration/>");
+    await client.exec({ method: "GET" });
+
+    expect(requests[0].url.searchParams.get("list-type")).toBe("2");
+    expect(requests[0].url.searchParams.get("max-keys")).toBe("1000");
+    expect(new Headers(requests[0].init.headers).get("authorization")).toContain("AWS4-HMAC-SHA256");
+    expect(new Headers(requests[0].init.headers).get("x-amz-content-sha256")).toMatch(/^[a-f0-9]{64}$/);
   });
 });

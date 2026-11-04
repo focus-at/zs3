@@ -2,9 +2,9 @@ import { zs3 } from "../index.ts";
 
 // Run the signer in a trusted server environment; keep the secret key private.
 const signer = zs3({
-  endpoint: process.env.S3_ENDPOINT!,
-  accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+  endpoint: process.env.S3_ENDPOINT ?? "https://s3.example.test",
+  accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "test-key",
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "key",
   region: "us-east-1",
 });
 

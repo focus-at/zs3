@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { zs3 } from "../index.ts";
+import { readFixture } from "./helpers/fixtures.ts";
+import { mockFetch, restoreMockFetch } from "./helpers/mock-fetch.ts";
 
-const originalFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = originalFetch; });
+afterEach(restoreMockFetch);
 
 describe("S3 errors and edge cases", () => {
   test("returns status and parsed XML error payload", async () => {
-    globalThis.fetch = (async () => new Response("<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>", { status: 403 })) as typeof fetch;
+    const xml = await readFixture("access-denied.xml");
+    mockFetch(new Response(xml, { status: 403 }));
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
+
     const response = await client.exec({ method: "GET" });
     const body = await response.json();
     expect(response.status).toBe(403);

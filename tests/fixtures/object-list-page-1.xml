@@ -1,0 +1,5 @@
+<ListBucketResult>
+  <IsTruncated>true</IsTruncated>
+  <NextContinuationToken>page-2-token</NextContinuationToken>
+  <Contents><Key>reports/first.txt</Key><Size>5</Size><ETag>"etag-1"</ETag></Contents>
+</ListBucketResult>
