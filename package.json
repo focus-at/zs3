@@ -64,12 +64,7 @@
     "README.md",
     "LICENSE"
   ],
-  "peerDependencies": {
+  "devDependencies": {
     "typescript": "^6.0.0"
-  },
-  "peerDependenciesMeta": {
-    "typescript": {
-      "optional": true
-    }
   }
 }
