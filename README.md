@@ -34,6 +34,31 @@ Ordered from package footprint and platform foundation to S3 capabilities:
 npm install @focus-at/zs3
 ```
 
+Generate a short-lived URL in a trusted server environment, then let the browser send the request with standard `fetch()`. Keep permanent credentials on the server; never expose the secret access key in browser code.
+
+```typescript
+// Server: create a pre-signed URL.
+import { zs3 } from "@focus-at/zs3";
+
+const signer = zs3({
+  endpoint: process.env.S3_ENDPOINT!,
+  accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+  region: "us-east-1",
+});
+
+const url = await signer.sign(
+  { method: "GET", bucket: "my-bucket", key: "reports/annual.pdf" },
+  { expiresIn: 300 },
+);
+
+// Browser: use the URL with the standard Fetch API.
+const response = await fetch(url);
+console.log(response.status, await response.blob());
+```
+
+For direct server-side requests, `execute()` signs and sends the request and returns a native `Response`:
+
 ```typescript
 import { zs3 } from "@focus-at/zs3";
 import type { ZS3Objects } from "@focus-at/zs3/types";
@@ -45,15 +70,10 @@ const client = zs3({
   bucket: "my-bucket",
 });
 
-const response = await client.execute<ZS3Objects>({
-  method: "GET",
-  prefix: "reports/",
-});
+const response = await client.execute<ZS3Objects>({ method: "GET", prefix: "reports/" });
 const page = await response.json();
 console.log(page.Contents);
 ```
-
-Keep permanent credentials in a trusted environment. Do not expose secret access keys in browser code. For browser access, create a short-lived pre-signed URL on the server and use standard `fetch()` from the client; see [`examples/presigned-fetch.ts`](examples/presigned-fetch.ts).
 
 ## Request model
 
@@ -71,6 +91,18 @@ const response = await client.execute(
 For object listings, `fetch-owner` asks S3 to include owner information for listed objects. It is not a parameter for retrieving an individual object; use `HEAD` for object response headers or the object's `?acl` subresource for ACL information.
 
 Object metadata and object tags are separate features. Set user metadata during upload with `x-amz-meta-*` headers and inspect it with `HEAD`. Tags use the `?tagging` subresource. Replacing metadata on an existing object typically uses a copy operation with metadata replacement.
+
+## API coverage map
+
+| Area | Covered scenarios |
+| --- | --- |
+| Signing | AWS4 signing, pre-signed URL, standard `fetch` after signing |
+| Buckets | list/create/delete; ACL, versioning, lifecycle, policy, tags, CORS, encryption, website, notifications, logging, replication, public access block, object lock |
+| Object lists | prefix, delimiter, max-keys, start-after, fetch-owner, continuation-token pagination |
+| Objects | GET, PUT, HEAD, DELETE, ACL, tags, user metadata, attributes, restore, retention/legal hold |
+| Multipart | initiate, upload part, list parts, complete, abort |
+| Custom requests | custom path, query parameters, headers, body |
+| Errors | status handling and parsed S3 XML error payloads |
 
 ## Examples
 
