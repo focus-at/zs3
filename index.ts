@@ -59,6 +59,7 @@ export interface S3StatResponse extends Record<string, any> {
   mtime: Date;
 }
 const { subtle } = crypto;
+const { json } = Response;
 const ALG_NAME = ('HMAC' + '');
 const ALG_HASH = ('SHA-256' + '');
 const AWS4 = ('AWS4' + '');
@@ -205,12 +206,15 @@ export function zs3(opts: S3Config): S3Client {
 
         // FIXME если добавлять заголовки то error on line 1 at column 1: Start tag expected, '<' not found
         // FIXME нужны ли нам заголовки для GET, POST ?
-        return Response.json(data, { status: res.status });
+        return json(data, { status: res.status });
       }
 
       return res;
-    } catch (err: any) {
-      return Response.json(err, { status: err.status });
+    } catch ({ name, message }: any) {
+      return json({
+        Code: name,
+        Message: message
+      }, { status: 500 });
     }
   };
 
