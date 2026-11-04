@@ -84,11 +84,6 @@ export interface ZS3Objects {
   KeyCount?: number;
 }
 
-export interface ZS3StatResponse extends Record<string, any> {
-  size: number;
-  mtime: Date;
-}
-
 export interface ZS3Client {
   /** Generate a presigned URL for secure, temporary access to an S3 object */
   sign(req: ZS3RequestOptions, options?: ZS3Options & { expiresIn?: number }): Promise<string>;
