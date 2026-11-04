@@ -2,7 +2,7 @@
 
 ![GitHub License](https://img.shields.io/github/license/focus-at/zs3)
 ![npm version](https://img.shields.io/npm/v/@focus-at/zs3)
-![Tests](https://img.shields.io/github/actions/workflow/status/focus-at/zs3/main.yml?branch=main&label=tests)
+![Тесты](https://github.com/focus-at/zs3/actions/workflows/main.yml/badge.svg)
 ![GitHub Stars](https://img.shields.io/github/stars/focus-at/zs3)
 
 > **Zero runtime dependencies · only ~3 KB minified · built on Web Platform APIs**
