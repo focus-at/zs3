@@ -1,63 +1,31 @@
+import type {
+  ZS3Client,
+  ZS3Config,
+  ZS3GetOptions,
+  ZS3ObjectOptions,
+  ZS3Options,
+  ZS3PutOptions,
+  ZS3RequestOptions,
+  ZS3Response,
+} from "./types.ts";
 
-export interface S3Config {
-  endpoint: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  sessionToken?: string;
-  bucket?: string;
-  region?: string;
-  [key: string]: any;
-}
+export type {
+  ZS3Bucket,
+  ZS3Buckets,
+  ZS3Client,
+  ZS3Config,
+  ZS3GetOptions,
+  ZS3MultipartOptions,
+  ZS3Object,
+  ZS3ObjectOptions,
+  ZS3Objects,
+  ZS3Options,
+  ZS3Owner,
+  ZS3PutOptions,
+  ZS3RequestOptions,
+  ZS3Response,
+} from "./types.ts";
 
-export interface S3Options {
-  headers?: Record<string, string>;
-  meta?: Record<string, string>;
-  query?: Record<string, string | number | boolean>;
-}
-
-export interface S3GetOptions {
-  key?: string;
-  bucket?: string;
-  prefix?: string;
-  maxKeys?: number;
-}
-
-export interface S3ObjectOptions extends Pick<S3GetOptions, 'bucket'> {
-  key: string;
-}
-
-export interface S3MultipartOptions {
-  uploadId?: string;
-  partNumber?: number;
-  parts?: { partNumber: number; etag: string }[];
-}
-
-export interface S3PutOptions extends S3ObjectOptions, S3MultipartOptions {
-  body?: any;
-}
-
-export type S3RequestOptions =
-  | ({ method: 'GET' } & S3GetOptions)
-  | ({ method: 'PUT' } & S3PutOptions)
-  | ({ method: 'DELETE' } & S3ObjectOptions)
-  | ({ method: 'HEAD' } & S3ObjectOptions)
-  | ({ method: 'POST' } & S3PutOptions);
-
-export interface S3Client {
-  /** Generate a presigned URL for secure, temporary access to an S3 object */
-  sign(req: S3RequestOptions, options?: S3Options & { expiresIn?: number }): Promise<string>;
-
-  /** Execute an S3 request directly (supports GET, PUT, DELETE, HEAD) */
-  execute(req: S3RequestOptions, options?: S3Options): Promise<Response>;
-
-  /** Create a new client instance by shallow-merging the current config with overrides */
-  clone(newConfig?: Partial<S3Config>): S3Client;
-}
-
-export interface S3StatResponse extends Record<string, any> {
-  size: number;
-  mtime: Date;
-}
 const { subtle } = crypto;
 const ALG_NAME = ('HMAC' + '');
 const ALG_HASH = ('SHA-256' + '');
@@ -102,50 +70,22 @@ const assignDashCase = (target: Record<string, string>, source: Record<string, a
 
 const awsEncodeURI = (str: string): string =>
   encodeURIComponent(str).replace(RE_ENCODE_URI, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-/*
-const parseXml = (str: string): any => {
-  const types: Record<string, any> = { "": "", "true": true, "false": false };
-  const m = [...str.matchAll(RE_XML_TAGS)];
-  let data = m.length ? m.reduce((acc: any, [, key = '', content = '']) => {
-    let value = types[content] ?? (isNaN(+content) ? parseXml(content) : +content);
-    if (key === "ETag") {
-      value = value.replace(/"/g, '');
-    }
-    acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : acc[key] != null ? [acc[key], value] : key === "Contents" ? [value] : value;
-    return acc;
-  }, {}) : str;
 
-  if (data && typeof data === 'object') {
-    const keys = Object.keys(data);
-    if (keys.length === 1) data = data[keys[0] as string];
-    if (data.Buckets && data.Buckets.Bucket) {
-      data.Buckets = Array.isArray(data.Buckets.Bucket) ? data.Buckets.Bucket : [data.Buckets.Bucket];
-    }
-  }
-
-  return data;
-};
-*/
 const parseXml = (str: string): any => {
   const types: Record<string, any> = { "": "", "true": true, "false": false };
   const m = [...str.matchAll(RE_XML_TAGS)];
 
-  // 1. Если дочерних тегов нет — это чистый текст (примитив)
   if (!m.length) {
     return types[str] ?? (isNaN(+str) || str === "" ? str : +str);
   }
 
-  // 2. Если теги есть — собираем объект
   const currentLevelTags = m.reduce((acc: any, [, key = '', content = '']) => {
-    let value = parseXml(content); // Рекурсивно уходим вглубь
+    let value = parseXml(content);
 
-    // Очистка кавычек для ETag, если встретили его
     if (key === "ETag") {
       value = value.replace(/"/g, '');
     }
 
-    // Универсальное определение массивов:
-    // Если ключ уже существует — превращаем в массив или докидываем в него
     if (acc[key] != null) {
       acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
     } else {
@@ -155,9 +95,7 @@ const parseXml = (str: string): any => {
     return acc;
   }, {});
 
-  // 3. Убираем обертку корневого тега, если он один (например, <ListBucketResult>)
   const keys = Object.keys(currentLevelTags);
-
   const data = keys.length === 1 ? currentLevelTags[keys[0]] : currentLevelTags;
 
   if (!Array.isArray(data?.Contents ?? [])) {
@@ -167,13 +105,13 @@ const parseXml = (str: string): any => {
   return data;
 };
 
-export function zs3(opts: S3Config): S3Client {
+export function zs3(opts: ZS3Config): ZS3Client {
   const config = { region: 'us-east-1', bucket: '', ...opts };
   const { endpoint, region, accessKeyId, secretAccessKey, sessionToken } = config;
   const [,protocol = (globalThis.location?.protocol || 'https'), host = ''] = endpoint?.match(/^(?:([^/:]+)?:\/\/)?([^/:]+)/) || [];
 
-  const prepare = async (req: S3RequestOptions, options: S3Options & { expiresIn?: number } = {}, isPresigned = false) => {
-    const { method, body, maxKeys = 1000, prefix = '', bucket = config.bucket } = req as S3RequestOptions & (S3PutOptions & S3GetOptions);
+  const prepare = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}, isPresigned = false) => {
+    const { method, body, maxKeys = 1000, prefix = '', bucket = config.bucket } = req as ZS3RequestOptions & (ZS3PutOptions & ZS3GetOptions);
     const cleanKey = req.key?.replace(RE_LEADING_SLASHES, '') ?? '';
     const uri = bucket ? `/${bucket}/${cleanKey}` : `/${cleanKey}`;
     const isoDate = new Date().toISOString().replace(RE_ISO_DATE, '');
@@ -235,23 +173,21 @@ export function zs3(opts: S3Config): S3Client {
     return { requestUrl, headers, body, method };
   };
 
-  const sign = async (req: S3RequestOptions, options: S3Options & { expiresIn?: number } = {}): Promise<string> => {
+  const sign = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}): Promise<string> => {
     const { requestUrl } = await prepare(req, options, true);
     return requestUrl.toString();
   };
 
-  const execute = async (req: S3RequestOptions, options: S3Options = {}): Promise<Response> => {
+  const execute = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}): Promise<ZS3Response<T>> => {
     const { requestUrl, ...init } = await prepare(req, options, false);
 
     try {
       const res = await fetch(requestUrl, init);
-      // FIXME если добавлять заголовки то error on line 1 at column 1: Start tag expected, '<' not found
-      // FIXME нужны ли нам заголовки для GET, POST ?
       if (!res.ok || (req.method === 'GET' && !req.key) || req.method === 'POST') {
-        return Response.json(parseXml((await res.text()).trim()), { status: res.status });
+        return Response.json(parseXml((await res.text()).trim()), { status: res.status }) as ZS3Response<T>;
       }
 
-      return res;
+      return res as ZS3Response<T>;
     } catch ({ name, message }: any) {
       throw {
         Code: name,
@@ -263,6 +199,6 @@ export function zs3(opts: S3Config): S3Client {
   return {
     sign,
     execute,
-    clone: (newConfig: Partial<S3Config> = {}) => zs3({ ...config, ...newConfig })
+    clone: (newConfig = {}) => zs3({ ...config, ...newConfig })
   };
 }
