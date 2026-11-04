@@ -230,7 +230,7 @@ For listing parts and aborting an upload too, see [`examples/multipart.ts`](exam
 | Signing | AWS4 signing, pre-signed URL, standard `fetch` after signing |
 | Buckets | list/create/delete; ACL, versioning, lifecycle, policy, tags, CORS, encryption, website, notifications, logging, replication, public access block, object lock |
 | Object lists | prefix, delimiter, max-keys, start-after, fetch-owner, continuation-token pagination |
-| Objects | GET, PUT, HEAD, DELETE, ACL, tags, user metadata, attributes, restore, retention/legal hold |
+| Objects | GET, PUT, HEAD, DELETE, ACL, tags, user metadata, attributes, restore, retention/legal hold, object versions (list/get/delete) |
 | Multipart | initiate, upload part, list parts, complete, abort |
 | Custom requests | custom path, query parameters, headers, body |
 | Errors | status handling and parsed S3 XML error payloads |
@@ -242,7 +242,7 @@ The `examples/` directory contains complete examples grouped by workflow:
 - [`presigned-fetch.ts`](examples/presigned-fetch.ts) — create a pre-signed URL on the server and send the request with standard `fetch()`.
 - [`custom-request.ts`](examples/custom-request.ts) — custom endpoint path with query parameters, headers, and a request body.
 - [`buckets.ts`](examples/buckets.ts) — list, create, and delete buckets; ACL, versioning, lifecycle, policy, tags, CORS, encryption, website, notifications, logging, replication, public access, and object lock.
-- [`objects.ts`](examples/objects.ts) — list and paginate objects; `prefix`, `delimiter`, `fetch-owner`, CRUD, ACL, tags, metadata, copy, attributes, restore, retention, and legal hold.
+- [`objects.ts`](examples/objects.ts) — list and paginate objects; `prefix`, `delimiter`, `fetch-owner`, list from a starting key, CRUD, ACL, tags, metadata, copy, attributes, restore, retention, legal hold, and list/get/delete object versions.
 - [`multipart.ts`](examples/multipart.ts) — initiate, upload parts, list parts, complete, and abort multipart uploads.
 
 Examples use placeholder credentials and endpoints. Supply your own configuration when adapting them; avoid running destructive operations such as bucket or object deletion against production data.

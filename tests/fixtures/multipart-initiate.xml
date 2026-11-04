@@ -1,0 +1,1 @@
+<InitiateMultipartUploadResult><Bucket>demo-bucket</Bucket><Key>large-archive.zip</Key><UploadId>upload-123</UploadId></InitiateMultipartUploadResult>

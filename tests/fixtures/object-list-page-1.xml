@@ -1,0 +1,1 @@
+<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>page-2-token</NextContinuationToken><Contents><Key>reports/first.txt</Key><Size>5</Size><ETag>"etag-1"</ETag><Owner><ID>owner-1</ID><DisplayName>Test Owner</DisplayName></Owner></Contents></ListBucketResult>
