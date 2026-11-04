@@ -53,7 +53,7 @@ const page = await response.json();
 console.log(page.Contents);
 ```
 
-Keep permanent credentials in a trusted environment. For browser access, create a short-lived pre-signed URL on the server and use standard `fetch()` from the client.
+Keep permanent credentials in a trusted environment. Do not expose secret access keys in browser code. For browser access, create a short-lived pre-signed URL on the server and use standard `fetch()` from the client; see [`examples/presigned-fetch.ts`](examples/presigned-fetch.ts).
 
 ## Request model
 
@@ -74,4 +74,18 @@ Object metadata and object tags are separate features. Set user metadata during 
 
 ## Examples
 
-See the [`examples/`](examples/) directory for grouped examples covering pre-signed `fetch`, custom requests, buckets, objects, and multipart uploads.
+The `examples/` directory contains complete examples grouped by workflow:
+
+- [`presigned-fetch.ts`](examples/presigned-fetch.ts) — create a pre-signed URL on the server and send the request with standard `fetch()`.
+- [`custom-request.ts`](examples/custom-request.ts) — custom endpoint path with query parameters, headers, and a request body.
+- [`buckets.ts`](examples/buckets.ts) — list, create, and delete buckets; ACL, versioning, lifecycle, policy, tags, CORS, encryption, website, notifications, logging, replication, public access, and object lock.
+- [`objects.ts`](examples/objects.ts) — list and paginate objects; `prefix`, `delimiter`, `fetch-owner`, CRUD, ACL, tags, metadata, copy, attributes, restore, retention, and legal hold.
+- [`multipart.ts`](examples/multipart.ts) — initiate, upload parts, list parts, complete, and abort multipart uploads.
+
+Check that the TypeScript examples bundle without making network requests:
+
+```sh
+bun run check:examples
+```
+
+Examples use placeholder credentials and endpoints. Supply your own configuration when adapting them; avoid running destructive operations such as bucket or object deletion against production data.
