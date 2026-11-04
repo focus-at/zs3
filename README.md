@@ -75,22 +75,152 @@ const page = await response.json();
 console.log(page.Contents);
 ```
 
-## Request model
+## Useful operation patterns
 
-`execute()` signs and sends a request, returning a native `Response`. `sign()` generates a URL for a specific operation; send it with the matching method, headers, and body using ordinary `fetch()`.
+### List objects page by page
 
-Pass query parameters and headers as the second argument:
+Use `fetch-owner` to include owner information in the listing. For the next page, pass `NextContinuationToken` as the `continuation-token` query parameter.
 
 ```typescript
-const response = await client.execute(
+import type { ZS3Objects } from "@focus-at/zs3/types";
+
+const firstResponse = await client.execute<ZS3Objects>(
   { method: "GET", prefix: "reports/" },
   { query: { delimiter: "/", "max-keys": 100, "fetch-owner": true } },
 );
+const firstPage = await firstResponse.json();
+
+if (firstPage.IsTruncated && firstPage.NextContinuationToken) {
+  const nextResponse = await client.execute<ZS3Objects>(
+    { method: "GET", prefix: "reports/" },
+    {
+      query: {
+        delimiter: "/",
+        "max-keys": 100,
+        "fetch-owner": true,
+        "continuation-token": firstPage.NextContinuationToken,
+      },
+    },
+  );
+  const nextPage = await nextResponse.json();
+  console.log(nextPage.Contents);
+}
 ```
 
-For object listings, `fetch-owner` asks S3 to include owner information for listed objects. It is not a parameter for retrieving an individual object; use `HEAD` for object response headers or the object's `?acl` subresource for ACL information.
+### Work with object versions
 
-Object metadata and object tags are separate features. Set user metadata during upload with `x-amz-meta-*` headers and inspect it with `HEAD`. Tags use the `?tagging` subresource. Replacing metadata on an existing object typically uses a copy operation with metadata replacement.
+Enable versioning for a bucket with the `versioning` subresource. Then list versions and use a returned `VersionId` to request a specific object version.
+
+```typescript
+await client.execute(
+  { method: "PUT", bucket: "my-bucket", key: "" },
+  {
+    query: { versioning: "" },
+    headers: { "Content-Type": "application/xml" },
+    body: "<VersioningConfiguration><Status>Enabled</Status></VersioningConfiguration>",
+  },
+);
+
+const versionsResponse = await client.execute(
+  { method: "GET", bucket: "my-bucket", key: "" },
+  { query: { versions: "", prefix: "reports/" } },
+);
+const versions = await versionsResponse.json();
+
+// Use a VersionId returned by the version listing.
+const objectVersion = await client.execute(
+  { method: "GET", bucket: "my-bucket", key: "reports/annual.pdf" },
+  { query: { versionId: "VERSION_ID" } },
+);
+```
+
+### Set object metadata and tags
+
+User metadata is sent during upload with `x-amz-meta-*` headers and can be inspected with `HEAD`. Tags are managed separately through the `tagging` subresource.
+
+```typescript
+await client.execute(
+  { method: "PUT", key: "reports/annual.pdf", body: file },
+  {
+    headers: {
+      "Content-Type": "application/pdf",
+      "x-amz-meta-source": "finance",
+    },
+  },
+);
+
+const metadata = await client.execute({ method: "HEAD", key: "reports/annual.pdf" });
+console.log(metadata.headers.get("x-amz-meta-source"));
+
+await client.execute(
+  { method: "PUT", key: "reports/annual.pdf", body: taggingXml },
+  {
+    query: { tagging: "" },
+    headers: { "Content-Type": "application/xml" },
+  },
+);
+```
+
+To inspect or change an object's ACL, use the separate `acl` subresource:
+
+```typescript
+const acl = await client.execute(
+  { method: "GET", key: "reports/annual.pdf" },
+  { query: { acl: "" } },
+);
+```
+
+### Send a custom request
+
+Use a custom path with query parameters, headers, and a body—for example, to call an application-specific endpoint:
+
+```typescript
+const response = await adminClient.execute(
+  {
+    method: "PUT",
+    key: "admin/v3/add-user",
+    body: JSON.stringify({ accessKey, status: "enabled" }),
+  },
+  {
+    query: { source: "dashboard" },
+    headers: { "Content-Type": "application/json" },
+  },
+);
+```
+
+See [`examples/custom-request.ts`](examples/custom-request.ts) for the complete example.
+
+### Upload a large object in parts
+
+Multipart uploads are split into requests to initiate the upload, send each part, and complete it. Keep the `uploadId` and each uploaded part's ETag for the completion request.
+
+```typescript
+const initiated = await client.execute(
+  { method: "POST", key: "archives/backup.zip" },
+  { query: { uploads: "" } },
+);
+const { UploadId } = await initiated.json();
+
+const partResponse = await client.execute(
+  { method: "PUT", key: "archives/backup.zip", body: part },
+  { query: { uploadId: UploadId, partNumber: 1 } },
+);
+const etag = partResponse.headers.get("etag");
+
+const partsXml = `<CompleteMultipartUpload>
+  <Part><PartNumber>1</PartNumber><ETag>${etag}</ETag></Part>
+</CompleteMultipartUpload>`;
+
+await client.execute(
+  { method: "POST", key: "archives/backup.zip", body: partsXml },
+  {
+    query: { uploadId: UploadId },
+    headers: { "Content-Type": "application/xml" },
+  },
+);
+```
+
+For listing parts and aborting an upload too, see [`examples/multipart.ts`](examples/multipart.ts).
 
 ## API coverage map
 
