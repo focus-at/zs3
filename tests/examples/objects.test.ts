@@ -63,23 +63,34 @@ describe("object examples", () => {
     expect(requests[0].url.searchParams.get("max-keys")).toBe("50");
   });
 
-  test("lists, downloads and deletes object versions", async () => {
+  test("lists, downloads and deletes a specific object version", async () => {
     const requests = mockFetch(
       new Response(await readFixture("object-versions.xml"), { status: 200 }),
       new Response("version data", { status: 200 }),
       new Response("", { status: 200 }),
     );
     const api = client();
-    const versions = await listObjectVersions(api);
-    const version = versions.json ? await versions.json() : versions;
-    await getObjectVersion(api, "reports/annual.pdf", "version-123");
-    await deleteObjectVersion(api, "reports/annual.pdf", "version-123");
+    const prefix = "reports/";
 
+    const versionsResponse = await listObjectVersions(api, prefix);
+    const versions = await versionsResponse.json();
+    expect(versions.VersionId).toBe("version-123");
+    expect(versions.Key).toBe("reports/annual.pdf");
     expect(requests[0].url.searchParams.has("versions")).toBe(true);
-    expect(requests[0].url.searchParams.get("prefix")).toBe("reports/");
+    expect(requests[0].url.searchParams.get("prefix")).toBe(prefix);
+
+
+    const key = "reports/annual.pdf";
+    const objectResponse = await getObjectVersion(api, key, "version-123");
+    expect(await objectResponse.text()).toBe("version data");
+
+    expect(requests[1].url.pathname).toBe("/demo-bucket/reports/annual.pdf");
     expect(requests[1].url.searchParams.get("version-id")).toBe("version-123");
+
+    const deleteResponse = await deleteObjectVersion(api, "reports/annual.pdf", "version-123");
+    expect(deleteResponse.status).toBe(200);
+    expect(requests[2].url.pathname).toBe("/demo-bucket/reports/annual.pdf");
     expect(requests[2].url.searchParams.get("version-id")).toBe("version-123");
-    expect(version).toBeDefined();
   });
 
   test("uploads, downloads, heads and deletes an object", async () => {
@@ -114,7 +125,7 @@ describe("object examples", () => {
       { name: "get attributes", method: "GET", run: (c: ZS3Client) => getObjectAttributes(c, "reports/item.txt"), header: ["x-amz-object-attributes", "ETag,Checksum,ObjectSize,StorageClass,ObjectParts"], response: "object-attributes.xml" },
       { name: "restore", method: "POST", query: "restore", run: async (c: ZS3Client) => restoreObject(c, "reports/item.txt", (await readFixture("object-restore.xml")).trim()), body: "object-restore.xml" },
       { name: "retention", method: "PUT", query: "retention", run: async (c: ZS3Client) => putObjectRetention(c, "reports/item.txt", (await readFixture("object-retention.xml")).trim()), body: "object-retention.xml" },
-      { name: "legal hold", method: "PUT", query: "legalHold", run: async (c: ZS3Client) => putObjectLegalHold(c, "reports/item.txt", (await readFixture("object-legal-hold.xml")).trim()), body: "object-legal-hold.xml" },
+      { name: "legal hold", method: "PUT", query: "legal-hold", run: async (c: ZS3Client) => putObjectLegalHold(c, "reports/item.txt", (await readFixture("object-legal-hold.xml")).trim()), body: "object-legal-hold.xml" },
     ];
     const responses = await Promise.all(cases.map(async (item) => new Response(item.response ? await readFixture(item.response) : "", { status: 200 })));
     const requests = mockFetch(...responses);

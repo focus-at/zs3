@@ -17,7 +17,7 @@ const client = () => zs3({ endpoint: "https://s3.example.test", accessKeyId: "te
 describe("multipart example", () => {
   test("runs initiate, upload, list, complete and abort using XML response fixtures", async () => {
     const names = ["multipart-initiate.xml", "multipart-list-parts.xml", "multipart-complete.xml"];
-    const fixtures = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await readFixture(name)] as const));
+    const fixtures = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await readFixture(name)] as const)));
     const requests = mockFetch(
       new Response(fixtures["multipart-initiate.xml"], { status: 200 }),
       new Response("", { status: 200, headers: { etag: '"part-etag"' } }),
