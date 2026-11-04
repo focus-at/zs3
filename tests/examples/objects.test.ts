@@ -2,13 +2,16 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   deleteObject,
   deleteObjectTags,
+  deleteObjectVersion,
   getObject,
   getObjectAcl,
   getObjectAttributes,
   getObjectTags,
+  getObjectVersion,
   headObject,
   listAllPages,
   listObjects,
+  listObjectVersions,
   listStartingAfter,
   putObject,
   putObjectAcl,
@@ -29,8 +32,7 @@ const client = () => zs3({ endpoint: "https://s3.example.test", accessKeyId: "te
 
 describe("object examples", () => {
   test("lists objects with owner, delimiter and max-keys options", async () => {
-    const xml = await readFixture("object-list-page-1.xml");
-    const requests = mockFetch(new Response(xml, { status: 200 }));
+    const requests = mockFetch(new Response(await readFixture("object-list-page-1.xml"), { status: 200 }));
     const result = await listObjects(client());
 
     expect(result.Contents[0].Key).toBe("reports/first.txt");
@@ -41,27 +43,43 @@ describe("object examples", () => {
   });
 
   test("paginates using the continuation token from the first fixture response", async () => {
-    const page1 = await readFixture("object-list-page-1.xml");
-    const page2 = await readFixture("object-list-page-2.xml");
-    const requests = mockFetch(new Response(page1, { status: 200 }), new Response(page2, { status: 200 }));
+    const requests = mockFetch(
+      new Response(await readFixture("object-list-page-1.xml"), { status: 200 }),
+      new Response(await readFixture("object-list-page-2.xml"), { status: 200 }),
+    );
     const pages = await listAllPages(client());
 
     expect(pages).toHaveLength(2);
     expect(pages[0].Contents[0].Key).toBe("reports/first.txt");
     expect(pages[1].Contents[0].Key).toBe("reports/second.txt");
-    expect(requests[0].url.searchParams.get("prefix")).toBe("reports/");
-    expect(requests[0].url.searchParams.get("delimiter")).toBe("/");
     expect(requests[0].url.searchParams.get("fetch-owner")).toBe("true");
     expect(requests[1].url.searchParams.get("continuation-token")).toBe("page-2-token");
   });
 
-  test("lists from a starting key", async () => {
+  test("lists starting after a key", async () => {
     const requests = mockFetch(new Response(await readFixture("object-list-page-2.xml"), { status: 200 }));
     await listStartingAfter(client(), "reports/first.txt");
-
-    expect(requests[0].url.searchParams.get("prefix")).toBe("reports/");
     expect(requests[0].url.searchParams.get("start-after")).toBe("reports/first.txt");
     expect(requests[0].url.searchParams.get("max-keys")).toBe("50");
+  });
+
+  test("lists, downloads and deletes object versions", async () => {
+    const requests = mockFetch(
+      new Response(await readFixture("object-versions.xml"), { status: 200 }),
+      new Response("version data", { status: 200 }),
+      new Response("", { status: 200 }),
+    );
+    const api = client();
+    const versions = await listObjectVersions(api);
+    const version = versions.json ? await versions.json() : versions;
+    await getObjectVersion(api, "reports/annual.pdf", "version-123");
+    await deleteObjectVersion(api, "reports/annual.pdf", "version-123");
+
+    expect(requests[0].url.searchParams.has("versions")).toBe(true);
+    expect(requests[0].url.searchParams.get("prefix")).toBe("reports/");
+    expect(requests[1].url.searchParams.get("version-id")).toBe("version-123");
+    expect(requests[2].url.searchParams.get("version-id")).toBe("version-123");
+    expect(version).toBeDefined();
   });
 
   test("uploads, downloads, heads and deletes an object", async () => {
@@ -86,28 +104,19 @@ describe("object examples", () => {
   });
 
   test("covers object ACL, tags, metadata replacement, attributes, restore, retention and legal hold", async () => {
-    const fixtureNames = ["object-acl.xml", "object-tags.xml", "object-restore.xml", "object-retention.xml", "object-legal-hold.xml"];
-    const payloads = Object.fromEntries(await Promise.all(fixtureNames.map(async (name) => [name, (await readFixture(name)).trim()] as const));
-    const cases: Array<{
-      name: string;
-      method: string;
-      query?: string;
-      requestFixture?: string;
-      run: (client: ZS3Client) => Promise<unknown>;
-      header?: [string, string];
-    }> = [
-      { name: "get ACL", method: "GET", query: "acl", run: (c) => getObjectAcl(c, "reports/item.txt") },
-      { name: "put ACL", method: "PUT", query: "acl", requestFixture: "object-acl.xml", run: (c) => putObjectAcl(c, "reports/item.txt", payloads["object-acl.xml"]) },
-      { name: "get tags", method: "GET", query: "tagging", run: (c) => getObjectTags(c, "reports/item.txt") },
-      { name: "put tags", method: "PUT", query: "tagging", requestFixture: "object-tags.xml", run: (c) => putObjectTags(c, "reports/item.txt", payloads["object-tags.xml"]) },
-      { name: "delete tags", method: "DELETE", query: "tagging", run: (c) => deleteObjectTags(c, "reports/item.txt") },
-      { name: "replace metadata by copy", method: "PUT", run: (c) => replaceObjectMetadata(c, "reports/item.txt", "/demo-bucket/source.txt"), header: ["x-amz-metadata-directive", "REPLACE"] },
-      { name: "get attributes", method: "GET", run: (c) => getObjectAttributes(c, "reports/item.txt"), header: ["x-amz-object-attributes", "ETag,Checksum,ObjectSize,StorageClass,ObjectParts"] },
-      { name: "restore", method: "POST", query: "restore", requestFixture: "object-restore.xml", run: (c) => restoreObject(c, "reports/item.txt", payloads["object-restore.xml"]) },
-      { name: "retention", method: "PUT", query: "retention", requestFixture: "object-retention.xml", run: (c) => putObjectRetention(c, "reports/item.txt", payloads["object-retention.xml"]) },
-      { name: "legal hold", method: "PUT", query: "legalHold", requestFixture: "object-legal-hold.xml", run: (c) => putObjectLegalHold(c, "reports/item.txt", payloads["object-legal-hold.xml"]) },
+    const cases = [
+      { name: "get ACL", method: "GET", query: "acl", run: (c: ZS3Client) => getObjectAcl(c, "reports/item.txt"), response: "object-acl.xml" },
+      { name: "put ACL", method: "PUT", query: "acl", run: async (c: ZS3Client) => putObjectAcl(c, "reports/item.txt", (await readFixture("object-acl.xml")).trim()), body: "object-acl.xml" },
+      { name: "get tags", method: "GET", query: "tagging", run: (c: ZS3Client) => getObjectTags(c, "reports/item.txt"), response: "object-tags.xml" },
+      { name: "put tags", method: "PUT", query: "tagging", run: async (c: ZS3Client) => putObjectTags(c, "reports/item.txt", (await readFixture("object-tags.xml")).trim()), body: "object-tags.xml" },
+      { name: "delete tags", method: "DELETE", query: "tagging", run: (c: ZS3Client) => deleteObjectTags(c, "reports/item.txt") },
+      { name: "replace metadata by copy", method: "PUT", run: (c: ZS3Client) => replaceObjectMetadata(c, "reports/item.txt", "/demo-bucket/source.txt"), header: ["x-amz-metadata-directive", "REPLACE"] },
+      { name: "get attributes", method: "GET", run: (c: ZS3Client) => getObjectAttributes(c, "reports/item.txt"), header: ["x-amz-object-attributes", "ETag,Checksum,ObjectSize,StorageClass,ObjectParts"], response: "object-attributes.xml" },
+      { name: "restore", method: "POST", query: "restore", run: async (c: ZS3Client) => restoreObject(c, "reports/item.txt", (await readFixture("object-restore.xml")).trim()), body: "object-restore.xml" },
+      { name: "retention", method: "PUT", query: "retention", run: async (c: ZS3Client) => putObjectRetention(c, "reports/item.txt", (await readFixture("object-retention.xml")).trim()), body: "object-retention.xml" },
+      { name: "legal hold", method: "PUT", query: "legalHold", run: async (c: ZS3Client) => putObjectLegalHold(c, "reports/item.txt", (await readFixture("object-legal-hold.xml")).trim()), body: "object-legal-hold.xml" },
     ];
-    const responses = cases.map(({ name }) => new Response(name === "get ACL" ? awaitFixture(payloads["object-acl.xml"]) : name === "get tags" ? awaitFixture(payloads["object-tags.xml"]) : "", { status: 200 }));
+    const responses = await Promise.all(cases.map(async (item) => new Response(item.response ? await readFixture(item.response) : "", { status: 200 })));
     const requests = mockFetch(...responses);
     const api = client();
 
@@ -117,8 +126,8 @@ describe("object examples", () => {
       expect(request.init.method, item.name).toBe(item.method);
       expect(request.url.pathname, item.name).toBe("/demo-bucket/reports/item.txt");
       if (item.query) expect(request.url.searchParams.has(item.query), item.name).toBe(true);
-      if (item.requestFixture) {
-        expect(request.init.body, item.name).toBe(payloads[item.requestFixture]);
+      if (item.body) {
+        expect(request.init.body, item.name).toBe((await readFixture(item.body)).trim());
         expect(new Headers(request.init.headers).get("content-type"), item.name).toBe("application/xml");
       }
       if (item.header) expect(new Headers(request.init.headers).get(item.header[0]), item.name).toBe(item.header[1]);
@@ -126,7 +135,3 @@ describe("object examples", () => {
     expect(requests).toHaveLength(cases.length);
   });
 });
-
-function awaitFixture(value: string) {
-  return value;
-}

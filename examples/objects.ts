@@ -36,6 +36,22 @@ export const listStartingAfter = (client: ZS3Client, key: string) => client.exec
   { query: { "start-after": key, "max-keys": 50 } },
 );
 
+// List object versions after enabling versioning on the bucket.
+export const listObjectVersions = (client: ZS3Client, prefix = "reports/") => client.exec(
+  { method: "GET", bucket, key: "" },
+  { query: { versions: "", prefix } },
+);
+
+// Read or delete a specific version using its VersionId from ListVersionsResult.
+export const getObjectVersion = (client: ZS3Client, key: string, versionId: string) => client.exec(
+  { method: "GET", bucket, key },
+  { query: { versionId } },
+);
+export const deleteObjectVersion = (client: ZS3Client, key: string, versionId: string) => client.exec(
+  { method: "DELETE", bucket, key },
+  { query: { versionId } },
+);
+
 // Single object: upload, download, inspect headers, and delete.
 export const putObject = (client: ZS3Client, key: string, body: BodyInit) => client.exec(
   { method: "PUT", bucket, key, body },
