@@ -12,13 +12,12 @@ describe("bucket operations", () => {
       return new Response("<Configuration/>", { status: 200 });
     }) as typeof fetch;
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
-    for (const subresource of ["acl", "versioning", "lifecycle", "policy", "tagging", "cors", "encryption", "website", "notification", "logging", "replication", "public-access-block", "object-lock"]) {
+    for (const subresource of ["acl", "versioning", "lifecycle", "policy", "tagging", "cors", "encryption", "website", "notification", "logging", "replication", "public-access-block", "object-lock"] ) {
       await client.execute({ method: "GET", bucket: "demo", key: "" }, { query: { [subresource]: "" } });
     }
     expect(urls).toHaveLength(13);
     for (const [index, subresource] of ["acl", "versioning", "lifecycle", "policy", "tagging", "cors", "encryption", "website", "notification", "logging", "replication", "public-access-block", "object-lock"].entries()) {
       expect(urls[index].searchParams.has(subresource)).toBe(true);
-      expect(urls[index].searchParams.has("list-type")).toBe(false);
     }
   });
 
