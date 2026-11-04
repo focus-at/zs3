@@ -24,14 +24,14 @@ describe("AWS signing and pre-signed fetch flow", () => {
     expect(fetched?.href).toBe(url.href);
   });
 
-  test("signs direct execute requests with session token and metadata headers", async () => {
+  test("signs direct exec requests with session token and metadata headers", async () => {
     let headers = new Headers();
     globalThis.fetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
       headers = new Headers(init?.headers);
       return new Response("ok", { status: 200 });
     }) as typeof fetch;
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "test-key", secretAccessKey: "test-secret", sessionToken: "temporary" });
-    await client.execute({ method: "PUT", bucket: "docs", key: "report.pdf", body: "contents" }, {
+    await client.exec({ method: "PUT", bucket: "docs", key: "report.pdf", body: "contents" }, {
       headers: { "Content-Type": "application/pdf" }, meta: { cacheControl: "private" },
     });
     expect(headers.get("x-amz-security-token")).toBe("temporary");

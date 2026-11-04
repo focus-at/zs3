@@ -3,16 +3,16 @@ import type { ZS3Client } from "../types.ts";
 const bucket = "demo-bucket";
 
 export async function listBuckets(client: ZS3Client) {
-  return client.execute({ method: "GET" });
+  return client.exec({ method: "GET" });
 }
 
 export async function createBucket(client: ZS3Client) {
-  return client.execute({ method: "PUT", bucket, key: "" });
+  return client.exec({ method: "PUT", bucket, key: "" });
 }
 
 export async function deleteBucket(client: ZS3Client) {
   // S3 requires a bucket to be empty before deletion.
-  return client.execute({ method: "DELETE", bucket, key: "" } as never);
+  return client.exec({ method: "DELETE", bucket, key: "" } as never);
 }
 
 async function bucketSubresource(
@@ -21,7 +21,7 @@ async function bucketSubresource(
   subresource: string,
   body?: string,
 ) {
-  return client.execute(
+  return client.exec(
     { method, bucket, key: "", ...(body === undefined ? {} : { body }) } as never,
     {
       query: { [subresource]: "" },
@@ -45,7 +45,7 @@ export const deleteBucketLifecycle = (client: ZS3Client) => bucketSubresource(cl
 
 // Bucket policy
 export const getBucketPolicy = (client: ZS3Client) => bucketSubresource(client, "GET", "policy");
-export const putBucketPolicy = (client: ZS3Client, json: string) => client.execute(
+export const putBucketPolicy = (client: ZS3Client, json: string) => client.exec(
   { method: "PUT", bucket, key: "", body: json } as never,
   { query: { policy: "" }, headers: { "Content-Type": "application/json" } },
 );

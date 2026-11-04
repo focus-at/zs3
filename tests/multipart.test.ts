@@ -12,11 +12,11 @@ describe("multipart upload request shapes", () => {
       return new Response("<InitiateMultipartUploadResult><UploadId>upload-1</UploadId></InitiateMultipartUploadResult>", { status: 200 });
     }) as typeof fetch;
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret", bucket: "demo" });
-    await client.execute({ method: "POST", key: "large.zip" }, { query: { uploads: "" } });
-    await client.execute({ method: "PUT", key: "large.zip", body: "part" }, { query: { uploadId: "upload-1", partNumber: 1 } });
-    await client.execute({ method: "GET", key: "large.zip" }, { query: { uploadId: "upload-1" } });
-    await client.execute({ method: "POST", key: "large.zip", body: "<CompleteMultipartUpload/>" }, { query: { uploadId: "upload-1" } });
-    await client.execute({ method: "DELETE", key: "large.zip" }, { query: { uploadId: "upload-1" } });
+    await client.exec({ method: "POST", key: "large.zip" }, { query: { uploads: "" } });
+    await client.exec({ method: "PUT", key: "large.zip", body: "part" }, { query: { uploadId: "upload-1", partNumber: 1 } });
+    await client.exec({ method: "GET", key: "large.zip" }, { query: { uploadId: "upload-1" } });
+    await client.exec({ method: "POST", key: "large.zip", body: "<CompleteMultipartUpload/>" }, { query: { uploadId: "upload-1" } });
+    await client.exec({ method: "DELETE", key: "large.zip" }, { query: { uploadId: "upload-1" } });
     expect(requests.map(({ method }) => method)).toEqual(["POST", "PUT", "GET", "POST", "DELETE"]);
     expect(requests[0].url.searchParams.has("uploads")).toBe(true);
     expect(requests[1].url.searchParams.get("part-number")).toBe("1");

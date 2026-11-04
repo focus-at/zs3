@@ -14,7 +14,7 @@
 
 **ZeroS3 (zs3)** is a lightweight S3-compatible client for JavaScript and TypeScript. At only **~3 KB minified**, it signs AWS Signature Version 4 requests and communicates with object storage through standard Web Platform APIs such as `fetch`, `Response`, `TextEncoder`, and `crypto.subtle`.
 
-Use `execute()` to sign and send a request, or `sign()` to create a pre-signed URL and send it with regular `fetch()`. Native `Response` objects make it easy to stream downloads, inspect headers, and integrate with web frameworks.
+Use `exec()` to sign and send a request, or `sign()` to create a pre-signed URL and send it with regular `fetch()`. Native `Response` objects make it easy to stream downloads, inspect headers, and integrate with web frameworks.
 
 ZeroS3 targets **Node.js, Bun, browsers, and edge runtimes such as Cloudflare Workers**, wherever the required Web APIs are available.
 
@@ -59,7 +59,7 @@ const response = await fetch(url);
 console.log(response.status, await response.blob());
 ```
 
-For direct server-side requests, `execute()` signs and sends the request and returns a native `Response`:
+For direct server-side requests, `exec()` signs and sends the request and returns a native `Response`:
 
 ```typescript
 import { zs3 } from "@focus-at/zs3";
@@ -72,7 +72,7 @@ const client = zs3({
   bucket: "my-bucket",
 });
 
-const response = await client.execute<ZS3Objects>({ method: "GET", prefix: "reports/" });
+const response = await client.exec<ZS3Objects>({ method: "GET", prefix: "reports/" });
 const page = await response.json();
 console.log(page.Contents);
 ```
@@ -86,14 +86,14 @@ Use `fetch-owner` to include owner information in the listing. For the next page
 ```typescript
 import type { ZS3Objects } from "@focus-at/zs3/types";
 
-const firstResponse = await client.execute<ZS3Objects>(
+const firstResponse = await client.exec<ZS3Objects>(
   { method: "GET", prefix: "reports/" },
   { query: { delimiter: "/", "max-keys": 100, "fetch-owner": true } },
 );
 const firstPage = await firstResponse.json();
 
 if (firstPage.IsTruncated && firstPage.NextContinuationToken) {
-  const nextResponse = await client.execute<ZS3Objects>(
+  const nextResponse = await client.exec<ZS3Objects>(
     { method: "GET", prefix: "reports/" },
     {
       query: {
@@ -114,7 +114,7 @@ if (firstPage.IsTruncated && firstPage.NextContinuationToken) {
 Enable versioning for a bucket with the `versioning` subresource. Then list versions and use a returned `VersionId` to request a specific object version.
 
 ```typescript
-await client.execute(
+await client.exec(
   { method: "PUT", bucket: "my-bucket", key: "" },
   {
     query: { versioning: "" },
@@ -123,14 +123,14 @@ await client.execute(
   },
 );
 
-const versionsResponse = await client.execute(
+const versionsResponse = await client.exec(
   { method: "GET", bucket: "my-bucket", key: "" },
   { query: { versions: "", prefix: "reports/" } },
 );
 const versions = await versionsResponse.json();
 
 // Use a VersionId returned by the version listing.
-const objectVersion = await client.execute(
+const objectVersion = await client.exec(
   { method: "GET", bucket: "my-bucket", key: "reports/annual.pdf" },
   { query: { versionId: "VERSION_ID" } },
 );
@@ -141,7 +141,7 @@ const objectVersion = await client.execute(
 User metadata is sent during upload with `x-amz-meta-*` headers and can be inspected with `HEAD`. Tags are managed separately through the `tagging` subresource.
 
 ```typescript
-await client.execute(
+await client.exec(
   { method: "PUT", key: "reports/annual.pdf", body: file },
   {
     headers: {
@@ -151,10 +151,10 @@ await client.execute(
   },
 );
 
-const metadata = await client.execute({ method: "HEAD", key: "reports/annual.pdf" });
+const metadata = await client.exec({ method: "HEAD", key: "reports/annual.pdf" });
 console.log(metadata.headers.get("x-amz-meta-source"));
 
-await client.execute(
+await client.exec(
   { method: "PUT", key: "reports/annual.pdf", body: taggingXml },
   {
     query: { tagging: "" },
@@ -166,7 +166,7 @@ await client.execute(
 To inspect or change an object's ACL, use the separate `acl` subresource:
 
 ```typescript
-const acl = await client.execute(
+const acl = await client.exec(
   { method: "GET", key: "reports/annual.pdf" },
   { query: { acl: "" } },
 );
@@ -177,7 +177,7 @@ const acl = await client.execute(
 Use a custom path with query parameters, headers, and a body—for example, to call an application-specific endpoint:
 
 ```typescript
-const response = await adminClient.execute(
+const response = await adminClient.exec(
   {
     method: "PUT",
     key: "admin/v3/add-user",
@@ -197,13 +197,13 @@ See [`examples/custom-request.ts`](examples/custom-request.ts) for the complete 
 Multipart uploads are split into requests to initiate the upload, send each part, and complete it. Keep the `uploadId` and each uploaded part's ETag for the completion request.
 
 ```typescript
-const initiated = await client.execute(
+const initiated = await client.exec(
   { method: "POST", key: "archives/backup.zip" },
   { query: { uploads: "" } },
 );
 const { UploadId } = await initiated.json();
 
-const partResponse = await client.execute(
+const partResponse = await client.exec(
   { method: "PUT", key: "archives/backup.zip", body: part },
   { query: { uploadId: UploadId, partNumber: 1 } },
 );
@@ -213,7 +213,7 @@ const partsXml = `<CompleteMultipartUpload>
   <Part><PartNumber>1</PartNumber><ETag>${etag}</ETag></Part>
 </CompleteMultipartUpload>`;
 
-await client.execute(
+await client.exec(
   { method: "POST", key: "archives/backup.zip", body: partsXml },
   {
     query: { uploadId: UploadId },

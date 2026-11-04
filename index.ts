@@ -160,7 +160,7 @@ export function zs3(opts: ZS3Config): ZS3Client {
     return requestUrl.toString();
   };
 
-  const execute = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}): Promise<ZS3Response<T>> => {
+  const exec = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}): Promise<ZS3Response<T>> => {
     const { requestUrl, ...init } = await prepare(req, options, false);
 
     try {
@@ -180,7 +180,7 @@ export function zs3(opts: ZS3Config): ZS3Client {
 
   return {
     sign,
-    execute,
+    exec,
     clone: (newConfig = {}) => zs3({ ...config, ...newConfig })
   };
 }

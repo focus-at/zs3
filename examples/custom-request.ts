@@ -8,7 +8,7 @@ const adminClient = zs3({
 });
 
 export async function addUser(accessKey: string, secretKey: string) {
-  return adminClient.execute(
+  return adminClient.exec(
     {
       method: "PUT",
       key: "admin/v3/add-user",

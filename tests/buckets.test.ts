@@ -13,11 +13,12 @@ describe("bucket operations", () => {
     }) as typeof fetch;
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
     for (const subresource of ["acl", "versioning", "lifecycle", "policy", "tagging", "cors", "encryption", "website", "notification", "logging", "replication", "public-access-block", "object-lock"] ) {
-      await client.execute({ method: "GET", bucket: "demo", key: "" }, { query: { [subresource]: "" } });
+      await client.exec({ method: "GET", bucket: "demo", key: "" }, { query: { [subresource]: "" } });
     }
     expect(urls).toHaveLength(13);
     for (const [index, subresource] of ["acl", "versioning", "lifecycle", "policy", "tagging", "cors", "encryption", "website", "notification", "logging", "replication", "public-access-block", "object-lock"].entries()) {
       expect(urls[index].searchParams.has(subresource)).toBe(true);
+      expect(urls[index].searchParams.has("list-type")).toBe(true);
     }
   });
 
@@ -30,7 +31,7 @@ describe("bucket operations", () => {
       return new Response("", { status: 200 });
     }) as typeof fetch;
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
-    await client.execute({ method: "PUT", bucket: "demo", key: "", body: "<VersioningConfiguration/>" }, { query: { versioning: "" } });
+    await client.exec({ method: "PUT", bucket: "demo", key: "", body: "<VersioningConfiguration/>" }, { query: { versioning: "" } });
     expect(url?.searchParams.has("versioning")).toBe(true);
     expect(body).toBe("<VersioningConfiguration/>");
   });
