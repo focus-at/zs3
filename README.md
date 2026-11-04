@@ -22,6 +22,17 @@
 npm i @focus-at/zs3
 ```
 
+```Bucket info
+  return storage.execute({ method: 'GET', bucket: 'pages' }, {
+    query: {
+      acl: '',
+      versioning: '',
+      lifecycle: '', // 404 if not exists
+      policy: '', // 404 if not exists
+    }
+  });
+```
+
 ```typescript
 import type { S3Client } from '@focus-at/zs3';
 import { zs3 } from '@focus-at/zs3';

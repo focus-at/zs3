@@ -192,14 +192,7 @@ export function zs3(opts: S3Config): S3Client {
     try {
       const res = await fetch(requestUrl, { method: req.method, headers, body });
 
-      if (!res.ok) {
-        throw {
-          status: res.status,
-          ...parseXml(await res.text())
-        };
-      }
-
-      if ((req.method === 'GET' && !req.key) || req.method === 'POST') {
+      if (!res.ok || (req.method === 'GET' && !req.key) || req.method === 'POST') {
         let data = parseXml(await res.text());
 
         if (data && typeof data === 'object') {
@@ -217,11 +210,7 @@ export function zs3(opts: S3Config): S3Client {
 
       return res;
     } catch (err: any) {
-      if (err.status) throw err;
-      throw {
-        status: 500,
-        Error: { Code: err.name, Message: err?.message }
-      };
+      return Response.json(err, { status: err.status });
     }
   };
 
