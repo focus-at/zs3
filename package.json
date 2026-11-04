@@ -8,13 +8,16 @@
     ".": {
       "types": "./index.ts",
       "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./types.ts"
     }
   },
   "scripts": {
     "build": "bun build --minify --sourcemap ./index.ts --outdir=dist",
     "patch": "npm version patch",
     "targs": "git push origin main --tags",
-    "postinstall": "node -e \"if(!process.env.DISABLE_OPENCOLLECTIVE && !process.env.CI){process.stdout.write('\\u001b[35mThanks for installing ZeroS3! Consider giving it a star on GitHub: https://github.com\\u001b[0m\\n')}\""
+    "postinstall": "node -e \"if(!process.env.DISABLE_OPENCOLLECTIVE && !process.env.CI){process.stdout.write('\\u001b[35mThanks for installing ZeroS3! Consider giving it a star on GitHub: https://github.com/focus-at/zs3\\u001b[0m\\n')}\""
   },
   "keywords": [
     "s3",
@@ -61,6 +64,7 @@
   "files": [
     "dist",
     "index.ts",
+    "types.ts",
     "README.md",
     "LICENSE"
   ],
