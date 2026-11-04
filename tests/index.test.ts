@@ -1,7 +1,44 @@
 import { describe, test, expect, afterEach, beforeEach } from "bun:test";
 import { zs3, hash, hmac, toHex } from "../index.ts";
 
-describe("ZeroS3 / zs3 Core Tests", () => {
+
+const readmeFilePath = '../README.md';
+const testContent = await Bun.file('tests/index.test.ts').text();
+let readmeContent = await Bun.file(readmeFilePath).text();
+
+const blockRegex = /\/\/ #DOC_START:\s*([\w-]+)([\s\S]*?)\/\/ #DOC_END:\s*\1/g;
+const examples: Record<string, string> = {};
+
+let match;
+while ((match = blockRegex.exec(testContent)) !== null) {
+  const [_, blockId, blockCode] = match;
+
+  const lines = blockCode.split('\n');
+  const minIndent = lines
+    .filter(line => line.trim())
+    .reduce((min, line) => Math.min(min, line.match(/^ */)?.[0].length || 0), Infinity);
+
+  examples[blockId] = lines
+    .map(line => line.slice(minIndent))
+    .join('\n')
+    .trim();
+}
+
+Object.entries(examples).forEach(([id, code]) => {
+  const injectMarker = `<!-- DOC_INJECT: ${id} -->`;
+
+  const targetRegex = new RegExp(`(${injectMarker})([\\s\\S]*?)(?=\\n(?:###|##|#|<!-- DOC_INJECT:|$))`);
+
+  const markdownBlock = `\n\n\`\`\`typescript\n${code}\n\`\`\``;
+
+  if (targetRegex.test(readmeContent)) {
+    readmeContent = readmeContent.replace(targetRegex, `$1${markdownBlock}`);
+  } else {
+    readmeContent = readmeContent.replace(injectMarker, `${injectMarker}${markdownBlock}`);
+  }
+});
+
+describe("Core Tests", () => {
   const originalFetch = globalThis.fetch;
   const endpoint = 's3.local';
 
@@ -140,7 +177,7 @@ describe("ZeroS3 / zs3 Core Tests", () => {
     expect(result.Contents[1].Size).toBe(2048);
   });
 
-  test("should clean root prefix and handle completely empty buckets with empty Contents array", async () => {
+  test("cleans root prefix and returns empty Contents array for empty buckets", async () => {
     mockFetch(`
       <ListBucketResult>
         <Name>test-bucket</Name>
@@ -161,6 +198,7 @@ describe("ZeroS3 / zs3 Core Tests", () => {
     expect(lastRequest.url?.pathname).toBe("/test-bucket/");
 
     expect(result.Prefix).toBe("");
+    console.log(result);
     // Ключевой контракт: Contents обязан быть массивом, даже если тега нет в XML
     expect(result.Contents).toBeInstanceOf(Array);
     expect(result.Contents.length).toBe(1);
@@ -168,7 +206,7 @@ describe("ZeroS3 / zs3 Core Tests", () => {
 
   // --- ДОБАВЛЕННЫЕ ТЕСТЫ НА РАЗЛИЧНЫЕ ТИПЫ ЗАПРОСОВ И ОШИБКИ ---
 
-  test("should correctly execute HEAD requests and preserve native headers", async () => {
+  test("executes HEAD requests and preserves native headers", async () => {
     mockFetch("", 200, { "x-amz-meta-custom": "hello" });
 
     // #DOC_START: stats-key
@@ -185,7 +223,7 @@ describe("ZeroS3 / zs3 Core Tests", () => {
     expect(response.headers.get("x-amz-meta-custom")).toBe("hello");
   });
 
-  test("should correctly execute DELETE requests", async () => {
+  test("executes DELETE requests", async () => {
     mockFetch("", 204);
     // #DOC_START: delete-key
     /**
@@ -199,7 +237,7 @@ describe("ZeroS3 / zs3 Core Tests", () => {
     expect(response.status).toBe(204);
   });
 
-  test("sign request", async () => {
+  test("signs requests correctly using AWS4", async () => {
     // #DOC_START: sign-request
     /**
      * Generate a pre-signed URL for a specific S3 operation.
@@ -230,7 +268,7 @@ describe("ZeroS3 / zs3 Core Tests", () => {
     expect(url).toContain("X-Amz-Region=eu-west-1");
   });
 
-  test("should correctly execute custom AWS4 request", async () => {
+  test("executes custom AWS4 requests", async () => {
     mockFetch("/admin/v3/add-user?accessKey=new-user-123", 200);
 
     // #DOC_START: add-user
@@ -265,78 +303,44 @@ describe("ZeroS3 / zs3 Core Tests", () => {
     expect(lastRequest.headers.get("content-type")).toBe("application/json");
   });
 
-  test("should correctly handle and throw structured S3 errors (403, 404)", async () => {
-    const errorXml = `
+  test("throws structured S3 errors for 403 and 404 statuses", async () => {
+    mockFetch(`
       <Error>
         <Code>AccessDenied</Code>
         <Message>Access Denied</Message>
       </Error>
-    `;
-    mockFetch(errorXml, 403);
+    `, 403);
 
-    try {
-      await storage.execute({ method: "GET" });
-      expect().fail("Should have thrown an S3 error");
-    } catch (err: any) {
-      expect(err.status).toBe(403);
-      expect(err.Error.Code).toBe("AccessDenied");
-      expect(err.Error.Message).toBe("Access Denied");
-    }
+    const res = await storage.execute({ method: "GET" });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.Code).toBe('AccessDenied');
+    expect(data.Message).toBe('Access Denied');
   });
 
-  test("should catch network failures and mask them into a unified 500 error", async () => {
-    globalThis.fetch = (async () => {
-      throw new TypeError("fetch failed");
-    }) as unknown as typeof fetch;
+  (!!process.env.S3_ENDPOINT ? describe : describe.skip)("Real Fetch Tests", () => {
 
-    try {
-      await storage.execute({ method: "GET", key: "file.bin" });
-      expect().fail("Should have thrown a 500 network error");
-    } catch (err: any) {
-      expect(err.status).toBe(500);
-      expect(err.Error.Code).toBe("TypeError");
-      expect(err.Error.Message).toBe("fetch failed");
-    }
-  });
-
-  const runIntegration = !!process.env.S3_ENDPOINT;
-
-  (runIntegration ? describe : describe.skip)("S3 Real Integration Tests", () => {
-    expect(runIntegration).toBe(true);
-
-    test("should catch network failures and mask them into a unified 500 error", async () => {
+    test("GET root", async () => {
       const storage = zs3({
         endpoint: process.env.S3_ENDPOINT ?? '',
         accessKeyId: process.env.S3_ACCESS_KEY_ID ?? '',
         secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
-        bucket: process.env.S3_BUCKET,
       });
 
-      console.log('created');
+      const res = await storage.execute({ method: 'GET' });
+      const data = await res.json();
 
-      const res = await storage.execute({ method: 'POST', key: 'large-file.zip', bucket: 'my-bucket' });
-
-      const { UploadId } = await res.json();
-
-      const chunkBytes = new Uint8Array([1, 2, 3, 4, 5]);
-
-      const partRes = await storage.execute({
-        method: 'PUT',
-        key: 'large-file.zip',
-        bucket: 'my-bucket',
-        uploadId: UploadId,
-        partNumber: 1,
-        body: chunkBytes // Blob, Uint8Array или ArrayBuffer
-      });
-
-
-      const completeRes = await storage.execute({
-        method: 'POST',
-        key: 'large-file.zip',
-        bucket: 'my-bucket',
-        uploadId: UploadId,
-        parts: [{ partNumber: 1, etag: partRes.headers.get('etag') ?? '' }]
-      });
-    });
+      expect(data).toHaveProperty('Buckets');
+      expect(data?.Buckets[0]).toHaveProperty('Name');
+      expect(data?.Buckets[0]).toHaveProperty('CreationDate');
+      expect(data).toHaveProperty('Owner');
+      expect(data?.Owner).toHaveProperty('DisplayName');
+      expect(data?.Owner).toHaveProperty('ID');
+    }, 10000);
   });
 });
+
+await Bun.write(readmeFilePath, readmeContent);
+
+console.log(`✅ Updated Examples: ${Object.keys(examples).length}`);

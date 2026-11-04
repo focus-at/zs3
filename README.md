@@ -29,6 +29,7 @@ npm i @focus-at/zs3
       versioning: '',
       lifecycle: '', // 404 if not exists
       policy: '', // 404 if not exists
+      'continuation-token': data.NextContinuationToken, // TODO
     }
   });
 ```

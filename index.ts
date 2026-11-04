@@ -59,7 +59,6 @@ export interface S3StatResponse extends Record<string, any> {
   mtime: Date;
 }
 const { subtle } = crypto;
-const { json } = Response;
 const ALG_NAME = ('HMAC' + '');
 const ALG_HASH = ('SHA-256' + '');
 const AWS4 = ('AWS4' + '');
@@ -103,15 +102,69 @@ const assignDashCase = (target: Record<string, string>, source: Record<string, a
 
 const awsEncodeURI = (str: string): string =>
   encodeURIComponent(str).replace(RE_ENCODE_URI, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-
+/*
 const parseXml = (str: string): any => {
   const types: Record<string, any> = { "": "", "true": true, "false": false };
   const m = [...str.matchAll(RE_XML_TAGS)];
-  return m.length ? m.reduce((acc: any, [, key = '', content = '']) => {
-    const value = types[content] ?? (isNaN(+content) ? parseXml(content) : +content);
+  let data = m.length ? m.reduce((acc: any, [, key = '', content = '']) => {
+    let value = types[content] ?? (isNaN(+content) ? parseXml(content) : +content);
+    if (key === "ETag") {
+      value = value.replace(/"/g, '');
+    }
     acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : acc[key] != null ? [acc[key], value] : key === "Contents" ? [value] : value;
     return acc;
   }, {}) : str;
+
+  if (data && typeof data === 'object') {
+    const keys = Object.keys(data);
+    if (keys.length === 1) data = data[keys[0] as string];
+    if (data.Buckets && data.Buckets.Bucket) {
+      data.Buckets = Array.isArray(data.Buckets.Bucket) ? data.Buckets.Bucket : [data.Buckets.Bucket];
+    }
+  }
+
+  return data;
+};
+*/
+const parseXml = (str: string): any => {
+  const types: Record<string, any> = { "": "", "true": true, "false": false };
+  const m = [...str.matchAll(RE_XML_TAGS)];
+
+  // 1. Если дочерних тегов нет — это чистый текст (примитив)
+  if (!m.length) {
+    return types[str] ?? (isNaN(+str) || str === "" ? str : +str);
+  }
+
+  // 2. Если теги есть — собираем объект
+  const currentLevelTags = m.reduce((acc: any, [, key = '', content = '']) => {
+    let value = parseXml(content); // Рекурсивно уходим вглубь
+
+    // Очистка кавычек для ETag, если встретили его
+    if (key === "ETag") {
+      value = value.replace(/"/g, '');
+    }
+
+    // Универсальное определение массивов:
+    // Если ключ уже существует — превращаем в массив или докидываем в него
+    if (acc[key] != null) {
+      acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
+    } else {
+      acc[key] = value;
+    }
+
+    return acc;
+  }, {});
+
+  // 3. Убираем обертку корневого тега, если он один (например, <ListBucketResult>)
+  const keys = Object.keys(currentLevelTags);
+
+  const data = keys.length === 1 ? currentLevelTags[keys[0]] : currentLevelTags;
+
+  if (!Array.isArray(data?.Contents ?? [])) {
+    data.Contents = [data.Contents];
+  }
+
+  return data;
 };
 
 export function zs3(opts: S3Config): S3Client {
@@ -179,7 +232,7 @@ export function zs3(opts: S3Config): S3Client {
       headers['Authorization'] = `${SIGN_P} ${CREDENTIAL}=${credential}, ${S_HEADERS}=${sortedHeaders.join(';')}, ${SIGNATURE}=${signature}`;
     }
 
-    return { requestUrl, headers, body };
+    return { requestUrl, headers, body, method };
   };
 
   const sign = async (req: S3RequestOptions, options: S3Options & { expiresIn?: number } = {}): Promise<string> => {
@@ -188,33 +241,22 @@ export function zs3(opts: S3Config): S3Client {
   };
 
   const execute = async (req: S3RequestOptions, options: S3Options = {}): Promise<Response> => {
-    const { requestUrl, headers, body } = await prepare(req, options, false);
+    const { requestUrl, ...init } = await prepare(req, options, false);
 
     try {
-      const res = await fetch(requestUrl, { method: req.method, headers, body });
-
+      const res = await fetch(requestUrl, init);
+      // FIXME если добавлять заголовки то error on line 1 at column 1: Start tag expected, '<' not found
+      // FIXME нужны ли нам заголовки для GET, POST ?
       if (!res.ok || (req.method === 'GET' && !req.key) || req.method === 'POST') {
-        let data = parseXml(await res.text());
-
-        if (data && typeof data === 'object') {
-          const keys = Object.keys(data);
-          if (keys.length === 1) data = data[keys[0] as string];
-          if (data.Buckets && data.Buckets.Bucket) {
-            data.Buckets = Array.isArray(data.Buckets.Bucket) ? data.Buckets.Bucket : [data.Buckets.Bucket];
-          }
-        }
-
-        // FIXME если добавлять заголовки то error on line 1 at column 1: Start tag expected, '<' not found
-        // FIXME нужны ли нам заголовки для GET, POST ?
-        return json(data, { status: res.status });
+        return Response.json(parseXml((await res.text()).trim()), { status: res.status });
       }
 
       return res;
     } catch ({ name, message }: any) {
-      return json({
+      throw {
         Code: name,
         Message: message
-      }, { status: 500 });
+      };
     }
   };
 
