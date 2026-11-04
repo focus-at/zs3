@@ -15,13 +15,14 @@ afterEach(restoreMockFetch);
 const client = () => zs3({ endpoint: "https://s3.example.test", accessKeyId: "test-key", secretAccessKey: "test-secret" });
 
 describe("multipart example", () => {
-  test("runs initiate, upload, list, complete and abort requests", async () => {
-    const initiateXml = await readFixture("multipart-initiate.xml");
+  test("runs initiate, upload, list, complete and abort using XML response fixtures", async () => {
+    const names = ["multipart-initiate.xml", "multipart-list-parts.xml", "multipart-complete.xml"];
+    const fixtures = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await readFixture(name)] as const));
     const requests = mockFetch(
-      new Response(initiateXml, { status: 200 }),
+      new Response(fixtures["multipart-initiate.xml"], { status: 200 }),
       new Response("", { status: 200, headers: { etag: '"part-etag"' } }),
-      new Response("<ListPartsResult/>", { status: 200 }),
-      new Response("<CompleteMultipartUploadResult/>", { status: 200 }),
+      new Response(fixtures["multipart-list-parts.xml"], { status: 200 }),
+      new Response(fixtures["multipart-complete.xml"], { status: 200 }),
       new Response("", { status: 200 }),
     );
     const api = client();
@@ -36,9 +37,10 @@ describe("multipart example", () => {
     expect(requests.map(({ init }) => init.method)).toEqual(["POST", "PUT", "GET", "POST", "DELETE"]);
     expect(requests[0].url.searchParams.has("uploads")).toBe(true);
     expect(requests[1].url.searchParams.get("part-number")).toBe("1");
+    expect(requests[1].init.body).toBe("part data");
     expect(requests[2].url.searchParams.get("upload-id")).toBe("upload-123");
     expect(requests[3].url.searchParams.get("upload-id")).toBe("upload-123");
-    expect(requests[3].init.body).toBe("<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>part-etag</ETag></Part></CompleteMultipartUpload>");
+    expect(requests[3].init.body).toBe((await readFixture("multipart-complete-request.xml")).trim());
     expect(new Headers(requests[3].init.headers).get("content-type")).toBe("application/xml");
     expect(requests[4].url.searchParams.get("upload-id")).toBe("upload-123");
   });
