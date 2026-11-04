@@ -246,10 +246,4 @@ The `examples/` directory contains complete examples grouped by workflow:
 - [`objects.ts`](examples/objects.ts) — list and paginate objects; `prefix`, `delimiter`, `fetch-owner`, CRUD, ACL, tags, metadata, copy, attributes, restore, retention, and legal hold.
 - [`multipart.ts`](examples/multipart.ts) — initiate, upload parts, list parts, complete, and abort multipart uploads.
 
-Check that the TypeScript examples bundle without making network requests:
-
-```sh
-bun run check:examples
-```
-
 Examples use placeholder credentials and endpoints. Supply your own configuration when adapting them; avoid running destructive operations such as bucket or object deletion against production data.
