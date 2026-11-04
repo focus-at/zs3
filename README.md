@@ -1,164 +1,88 @@
 # ZeroS3 (zs3)
+
 ![GitHub License](https://img.shields.io/github/license/focus-at/zs3)
 ![GitHub Stars](https://img.shields.io/github/stars/focus-at/zs3)
 
-> ⚠️ **Status: WIP (Work in Progress)**
-> This project is currently under active development (**WHIP**). The public API is highly experimental, subject to breaking changes, and the specification is still stabilizing.
-> 
-[cdn.jsdelivr](https://cdn.jsdelivr.net/npm/@focus-at/zs3@latest/+esm)
+> ⚠️ **Status: WIP (Work in Progress)** — ZeroS3 is under active development. The public API may change as the project evolves.
+
+[CDN package](https://cdn.jsdelivr.net/npm/@focus-at/zs3@latest/+esm)
 
 ## Overview
-**ZeroS3 (zs3)** is an ultra-lightweight (~3 KB), zero-dependency S3 client designed for performance-critical environments, edge workers, and client-side integration (**BYOS3** model). Built purely on modern Web Standards (`fetch`, `crypto.subtle`), it provides lightning-fast execution for AWS S3, MinIO, Cloudflare R2, and Backblaze B2.
+
+**ZeroS3 (zs3)** is a lightweight, zero-dependency S3-compatible client for JavaScript and TypeScript. It uses standard Web Platform APIs—including `fetch`, `Response`, and `crypto.subtle`—to sign requests and work with object storage across server, browser, and edge environments.
+
+The API is designed around two focused operations: `execute()` signs and sends a request, while `sign()` creates a pre-signed URL that can be used with the platform's standard `fetch()`. Native `Response` objects make it straightforward to stream downloads, inspect headers, and integrate with web frameworks.
 
 ## Features
-- **Zero Dependencies:** Built entirely on native Web APIs (`fetch`, `crypto.subtle`).
-- **Unified API:** One simple `execute()` method returning a native Web `Response`.
-- **Drop-in Web Compatibility:** Seamlessly stream files straight into your web server responses or client-side components.
+
+- **Zero runtime dependencies** — built on native Web APIs.
+- **TypeScript-first and fully typed** — public configuration, request, response, and S3 XML data types are available from `@focus-at/zs3/types`.
+- **AWS Signature Version 4** — sign direct requests or generate pre-signed URLs.
+- **Native Fetch API** — `execute()` returns a web-standard `Response`; `sign()` works with ordinary `fetch()`.
+- **S3-compatible operations** — use a consistent request model for buckets, object listings, objects, and subresources.
+- **Portable by design** — suitable for modern Node.js, browsers, and edge runtimes with Web API support.
+- **Small footprint** — designed as a lightweight client for performance-sensitive environments.
 
 ## Quick Start
 
-```zsh
-# Install
-npm i @focus-at/zs3
-```
-
-```Bucket info
-  return storage.execute({ method: 'GET', bucket: 'pages' }, {
-    query: {
-      acl: '',
-      versioning: '',
-      lifecycle: '', // 404 if not exists
-      policy: '', // 404 if not exists
-      'continuation-token': data.NextContinuationToken, // TODO
-    }
-  });
+```sh
+npm install @focus-at/zs3
 ```
 
 ```typescript
-import type { S3Client } from '@focus-at/zs3';
-import { zs3 } from '@focus-at/zs3';
-```
+import { zs3 } from "@focus-at/zs3";
+import type { ZS3Objects } from "@focus-at/zs3/types";
 
-<!-- DOC_INJECT: client-init -->
-
-```typescript
-/**
- * Initialize a new S3 client instance.
- * Accepts full S3-compatible API credentials and endpoints (e.g., AWS S3, MinIO, Yandex Cloud).
- */
-const storage = zs3({
-  endpoint,
-  accessKeyId: "mock-access-key",
-  secretAccessKey: "mock-secret-key",
-  bucket: "test-bucket",
-});
-```
-<!-- DOC_INJECT: stats-key -->
-
-```typescript
-/**
- * Retrieve metadata and headers for a specific object without downloading its content.
- * Useful for checking file existence, size, or content type efficiently.
- */
-const response = await storage.execute({ method: "HEAD", key: "doc.pdf" });
-```
-<!-- DOC_INJECT: get-prefix -->
-
-```typescript
-/**
- * List objects within the bucket that match a specific key prefix.
- * Automatically parses the S3 XML response into a clean JSON structure.
- */
-const response = await storage.execute({ method: "GET", prefix: "production/" });
-const result = await response.json();
-```
-<!-- DOC_INJECT: get-key -->
-
-```typescript
-/**
- * Download a specific object from the S3 bucket by its key.
- * Returns a native Response object containing the file data stream or payload.
- */
-const res = await storage.execute({ method: "GET", key: "file.txt" });
-```
-<!-- DOC_INJECT: instance-clone -->
-
-```typescript
-/**
- * Clone an existing S3 client instance to override specific configuration settings
- * such as the bucket, endpoint, or region while maintaining the original credentials.
- */
-const dynamic = storage.clone({
-  bucket: "dynamic-bucket",
-  endpoint: "://zone.com",
-  region: "eu-west-1"
-});
-```
-<!-- DOC_INJECT: put-key -->
-
-```typescript
-/**
- * Upload a payload or file directly to the S3 bucket using the PUT method.
- * Supports string payloads, buffers, blobs, and streams.
- */
-await dynamic.execute({ method: "PUT", key: "image.png", body: "payload" });
-```
-<!-- DOC_INJECT: delete-key -->
-
-```typescript
-/**
- * Permanently delete a specific object from the S3 bucket by its key.
- * This operation is irreversible and removes the target file immediately.
- */
-const response = await storage.execute({ method: "DELETE", key: "stale-file.tmp" });
-```
-<!-- DOC_INJECT: sign-request -->
-
-```typescript
-/**
- * Generate a pre-signed URL for a specific S3 operation.
- * This allows temporary, secure access to a resource with dynamic parameters
- * without exposing permanent AWS credentials to the client.
- */
-// Минимальный инстанс только со статичными ключами
-const signer = zs3({
-  endpoint: 'https://amazonaws.com',
-  accessKeyId: 'YOUR_ACCESS_KEY_ID',
-  secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+const client = zs3({
+  endpoint: process.env.S3_ENDPOINT!,
+  accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+  bucket: "my-bucket",
 });
 
-// Все динамические параметры передаем в сам запрос
-const url = await signer.sign({
-  method: 'GET',
-  bucket: 'my-dynamic-bucket', // Указываем тут
-  key: 'photo.jpg'
-}, {
-  query: { 'X-Amz-Region': 'eu-west-1' } // Если регион отличается от дефолтного
+const response = await client.execute<ZS3Objects>({
+  method: "GET",
+  prefix: "reports/",
 });
+const page = await response.json();
+console.log(page.Contents);
 ```
-<!-- DOC_INJECT: add-user -->
+
+Keep permanent credentials in a trusted environment. For browser access, create a short-lived pre-signed URL on the server and use standard `fetch()` from the client. See [`examples/presigned-fetch.ts`](examples/presigned-fetch.ts).
+
+## Examples
+
+The [`examples/`](examples/) directory contains complete, grouped scenarios:
+
+- [`presigned-fetch.ts`](examples/presigned-fetch.ts) — create a pre-signed URL on the server and send the request with standard `fetch()`.
+- [`custom-request.ts`](examples/custom-request.ts) — custom endpoint path with query parameters, headers, and a request body.
+- [`buckets.ts`](examples/buckets.ts) — list, create, and delete buckets; ACL, versioning, lifecycle, policy, tags, CORS, encryption, website, notifications, logging, replication, public access, and object lock.
+- [`objects.ts`](examples/objects.ts) — list and paginate objects; `prefix`, `delimiter`, `fetch-owner`, CRUD, ACL, tags, metadata, copy, attributes, restore, retention, and legal hold.
+- [`multipart.ts`](examples/multipart.ts) — initiate, upload parts, list parts, complete, and abort multipart uploads.
+
+Check that the TypeScript examples bundle without making network requests:
+
+```sh
+bun run check:examples
+```
+
+## Request model
+
+`execute()` signs and sends a request, returning a native `Response`. `sign()` generates a URL for a specific operation; send it with the matching method, headers, and body using ordinary `fetch()`.
+
+Request query parameters and headers are passed as the second argument:
 
 ```typescript
-/**
- * Execute custom request using AWS4 signature without prepending a bucket name to the URI.
- */
-
-const adminClient = zs3({
-  endpoint: 'https://amazonaws.com',
-  accessKeyId: 'ADMIN_ACCESS_KEY',
-  secretAccessKey: 'ADMIN_SECRET_KEY'
-});
-
-const accessKey = "new-user-123";
-const secretKey = "super-secret-password";
-const body = JSON.stringify({ secretKey, status: 'enabled' });
-
-const response = await adminClient.execute({
-  method: 'PUT',
-  key: 'admin/v3/add-user',
-  body: body
-}, {
-  query: { accessKey },
-  headers: { 'Content-Type': 'application/json' }
-});
+const response = await client.execute(
+  { method: "GET", prefix: "reports/" },
+  { query: { delimiter: "/", "max-keys": 100, "fetch-owner": true } },
+);
 ```
+
+For object listings, `fetch-owner` asks S3 to include owner information for listed objects. It is not a parameter for retrieving an individual object; use `HEAD` for object response headers or the object's `?acl` subresource for ACL information.
+
+Object metadata and object tags are separate features. Set user metadata during upload with `x-amz-meta-*` headers and inspect it with `HEAD`. Tags use the `?tagging` subresource. Replacing metadata on an existing object typically uses a copy operation with metadata replacement.
+
+## Example and test organization
+
+Examples are grouped by user-facing workflows in `examples/`. Tests are grouped by behavior in `tests/`. Example checks are an explicit command; running the test suite does not rewrite this README.
