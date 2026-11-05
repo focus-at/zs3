@@ -9,12 +9,13 @@ import type {
 } from "./types.ts";
 
 const { subtle } = crypto;
-const { assign, entries, keys } = Object;
+const { assign, keys } = Object;
 const ALG_NAME = ('HMAC' + '');
 const ALG_HASH = ('SHA-256' + '');
 const AWS4 = ('AWS4' + '');
+const AWS_REQUEST = ('aws4_request' + '');
 const X = ('X-Amz-' + '');
-const N = '\n';
+const NEW_LINE = ('\n' + '');
 const UNSIGNED = ('UNSIGNED-PAYLOAD' + '');
 const CREDENTIAL = ('Credential' + '');
 const SIGNATURE = ('Signature' + '');
@@ -30,7 +31,6 @@ const encoder = new TextEncoder();
 const toArrayBuffer = (d: any): ArrayBuffer =>
   d instanceof ArrayBuffer ? d : (d?.buffer?.constructor === ArrayBuffer ? d : encoder.encode(d ?? '')).buffer;
 
-
 export const toHex = (buf: ArrayBuffer | Uint8Array): string =>
   new Uint8Array(buf).reduce((acc, b) => acc + b.toString(16).padStart(2, '0'), '')
 
@@ -38,18 +38,17 @@ export const chainHmac = (key: any, ...steps: string[]) =>
   steps.reduce(async (k, step) => {
     const cryptoKey = await subtle.importKey('raw', toArrayBuffer(await k), { name: ALG_NAME, hash: ALG_HASH }, false, ['sign']);
     return subtle.sign(ALG_NAME, cryptoKey, encoder.encode(step));
-  }, Promise.resolve(key)).then(toHex);
+  }, key).then(toHex);
 
 export const hash = async (data: any) => toHex(await subtle.digest(ALG_HASH, toArrayBuffer(data)));
 
 const toKebabCase = (str: string): string =>
   str.replace(RE_DASH_CASE, "-$&").toLowerCase();
 
-const assignDashCase = (target: Record<string, string>, source?: Record<string, any>, prefix = '') => (
-  entries(source ?? {}).forEach(([k, v]) =>
-    v && typeof v !== 'object' && (target[toKebabCase(prefix + k)] = String(v))
-  ), target
-);
+const assignDashCase = (target: Record<string, string>, source: Record<string, any> | undefined, prefix = '') => {
+  for (const k in source) source[k] && (target[toKebabCase(prefix + k)] = String(source[k]));
+  return target;
+};
 
 const awsEncodeURI = (str: string): string =>
   encodeURIComponent(str).replace(RE_ENCODE_URI, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
@@ -99,7 +98,7 @@ export function zs3(opts: ZS3Config): ZS3Client {
     const requestUrl = new URL(pathname, `${protocol}://${host}`);
     const isoDate = new Date().toISOString().replace(RE_ISO_DATE, '');
     const sDate = isoDate.slice(0, 8);
-    const scope = `${sDate}/${region}/s3/aws4_request`;
+    const scope = `${sDate}/${region}/s3/${AWS_REQUEST}`;
     const credential = `${accessKeyId}/${scope}`;
     const isStream = body?.getReader;
     const payloadHash = isPresigned || isStream ? UNSIGNED : await hash(body || '');
@@ -128,10 +127,9 @@ export function zs3(opts: ZS3Config): ZS3Client {
       ...(isPresigned && { [X + S_HEADERS]: 'host' })
     });
 
-    const sortedQuery =  entries(queryObj)
-      .map(([k, v]) => `${isPresigned ? awsEncodeURI(k) : toKebabCase(k)}=${awsEncodeURI(String(v ?? ''))}`)
-      .sort()
-      .join('&');
+    const sortedQuery = keys(queryObj).sort().map(k =>
+      `${awsEncodeURI(isPresigned ? k : toKebabCase(k))}=${awsEncodeURI(String(queryObj[k] ?? ''))}`
+    ).join('&');
 
     const sortedHeaders = keys(headers).sort();
     const signature = await chainHmac(
@@ -139,7 +137,8 @@ export function zs3(opts: ZS3Config): ZS3Client {
       sDate,
       region,
       's3',
-      'aws4_request', [
+      AWS_REQUEST,
+      [
         SIGN_P,
         isoDate,
         scope,
@@ -150,13 +149,13 @@ export function zs3(opts: ZS3Config): ZS3Client {
           ...(isPresigned
             ? [`host:${host}`, '', 'host', UNSIGNED]
             : [
-              sortedHeaders.map(k => `${k}:${headers[k]?.trim()}`).join('\n'),
+              sortedHeaders.map(k => `${k}:${headers[k]?.trim()}`).join(NEW_LINE),
               '',
               sortedHeaders.join(';'),
               payloadHash
             ])
-        ].join('\n'))
-      ].join('\n')
+        ].join(NEW_LINE))
+      ].join(NEW_LINE)
     );
 
     requestUrl.search = sortedQuery;
