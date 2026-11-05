@@ -32,8 +32,8 @@ export async function listAllPages(client: ZS3Client, prefix = "reports/") {
 }
 
 export const listStartingAfter = (client: ZS3Client, key: string) => client.exec<ZS3Objects>(
-  { method: "GET", bucket, prefix: "reports/" },
-  { query: { "start-after": key, "max-keys": 50 } },
+  { method: "GET", bucket, prefix: "reports/", maxKeys: 50 },
+  { query: { "start-after": key,  } }, // "max-keys": 50
 );
 
 // List object versions after enabling versioning on the bucket.
