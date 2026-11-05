@@ -22,26 +22,28 @@ const S_HEADERS = ('SignedHeaders' + '');
 const SIGN_P = [AWS4, ALG_NAME, 'SHA256'].join('-');
 const RE_ISO_DATE = /[:-]|\.\d{3}/g;
 const RE_XML_TAGS = /<(\w[-\w]*)(?:\/|[^>]*>((?:(?!<\1)[\s\S])*)<\/\1)>/gm;
-const RE_DASH_CASE = /\B[A-Z]/g;
 const RE_ENCODE_URI = /[!'()*]/g;
+const RE_KEBAB_CASE = /\B[A-Z]/g;
 
 const encoder = new TextEncoder();
 
 const toArrayBuffer = (d: any): ArrayBuffer =>
-  d instanceof ArrayBuffer ? d : d?.buffer?.constructor === ArrayBuffer ? d.buffer : encoder.encode(d == null ? '' : `${d}`).buffer;
+  d instanceof ArrayBuffer ? d : (d?.buffer?.constructor === ArrayBuffer ? d : encoder.encode(d ?? '')).buffer;
 
-export const toHex = (buf: ArrayBuffer | Uint8Array):string =>
-  Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-export const hmac = async (key: string | Uint8Array | ArrayBuffer, data: string): Promise<Uint8Array> => {
-  const cryptoKey = await subtle.importKey('raw', toArrayBuffer(key), { name: ALG_NAME, hash: ALG_HASH}, false, ['sign']);
-  return new Uint8Array(await subtle.sign(ALG_NAME, cryptoKey, encoder.encode(data)));
-};
+export const toHex = (buf: ArrayBuffer | Uint8Array): string =>
+  new Uint8Array(buf).reduce((acc, b) => acc + b.toString(16).padStart(2, '0'), '')
+
+export const chainHmac = (key: any, ...steps: string[]) =>
+  steps.reduce(async (k, step) => {
+    const cryptoKey = await subtle.importKey('raw', toArrayBuffer(await k), { name: ALG_NAME, hash: ALG_HASH }, false, ['sign']);
+    return subtle.sign(ALG_NAME, cryptoKey, encoder.encode(step));
+  }, Promise.resolve(key)).then(toHex);
 
 export const hash = async (data: any) => toHex(await subtle.digest(ALG_HASH, toArrayBuffer(data)));
 
 const toKebabCase = (str: string): string =>
-  str.replace(RE_DASH_CASE, "-$&").toLowerCase();
+  str.replace(RE_KEBAB_CASE, "-$&").toLowerCase();
 
 const assignDashCase = (target: Record<string, string>, source?: Record<string, any>, prefix = '') => (
   entries(source ?? {}).forEach(([k, v]) =>
@@ -132,26 +134,30 @@ export function zs3(opts: ZS3Config): ZS3Client {
       .join('&');
 
     const sortedHeaders = keys(headers).sort();
-    const kSign = await hmac(await hmac(await hmac(await hmac(`${AWS4}${secretAccessKey}`, sDate), region), 's3'), 'aws4_request');
-
-    const signature = toHex(await hmac(kSign, [
-      SIGN_P,
-      isoDate,
-      scope,
-      await hash([
-        method,
-        pathname || '/',
-        sortedQuery,
-        ...(isPresigned
-          ? [`host:${host}`, '', 'host', UNSIGNED]
-          : [
+    const signature = await chainHmac(
+      `${AWS4}${secretAccessKey}`,
+      sDate,
+      region,
+      's3',
+      'aws4_request', [
+        SIGN_P,
+        isoDate,
+        scope,
+        await hash([
+          method,
+          pathname || '/',
+          sortedQuery,
+          ...(isPresigned
+            ? [`host:${host}`, '', 'host', UNSIGNED]
+            : [
               sortedHeaders.map(k => `${k}:${headers[k]?.trim()}`).join('\n'),
               '',
               sortedHeaders.join(';'),
               payloadHash
             ])
-      ].join('\n')) // Этот .join мы оставляем для структуры канонического запроса
-    ].join('\n'))); // А этот .join теперь принимает результат await hash(...) напрямую
+        ].join('\n'))
+      ].join('\n')
+    );
 
     requestUrl.search = sortedQuery;
 
@@ -164,10 +170,8 @@ export function zs3(opts: ZS3Config): ZS3Client {
     return { requestUrl, headers, body, method };
   };
 
-  const sign = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}): Promise<string> => {
-    const { requestUrl } = await prepare(req, options, true);
-    return requestUrl.toString();
-  };
+  const sign = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}): Promise<URL> =>
+    (await prepare(req, options, true)).requestUrl
 
   const exec = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}): Promise<ZS3Response<T>> => {
     const { requestUrl, ...init } = await prepare(req, options, false);
