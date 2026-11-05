@@ -1,17 +1,21 @@
-# ZeroS3 (zs3)
+# ZS3
 
 ![GitHub License](https://img.shields.io/github/license/focus-at/zs3)
 ![npm version](https://img.shields.io/npm/v/@focus-at/zs3)
-![Тесты](https://github.com/focus-at/zs3/actions/workflows/main.yml/badge.svg)
-![GitHub Stars](https://img.shields.io/github/stars/focus-at/zs3)
+![npm package minimized gzipped size](https://img.shields.io/bundlejs/size/%40focus-at%2Fzs3?color=green)
+![no dependencies](https://depx.co/api/badge/@focus-at/zs3)
+![NPM Downloads](https://img.shields.io/npm/dw/%40focus-at%2Fzs3)
 
 > **Zero runtime dependencies · only ~3 KB minified · built on Web Platform APIs**
 >
-> ZeroS3 is under active development; the public API may evolve.
+> ZS3 is under active development; the public API may evolve.
+
+![Tests](https://github.com/focus-at/zs3/actions/workflows/main.yml/badge.svg)
+![GitHub Stars](https://img.shields.io/github/stars/focus-at/zs3)
 
 ## Overview
 
-**ZeroS3 (zs3)** is a lightweight S3-compatible client for JavaScript and TypeScript. At only **~3 KB minified**, it signs AWS Signature Version 4 requests and communicates with object storage through standard Web Platform APIs such as `fetch`, `Response`, `TextEncoder`, and `crypto.subtle`.
+**ZS3** is a lightweight S3-compatible client for JavaScript and TypeScript. At only **~3 KB minified**, it signs AWS Signature Version 4 requests and communicates with object storage through standard Web Platform APIs such as `fetch`, `Response`, `TextEncoder`, and `crypto.subtle`.
 
 Use `exec()` to sign and send a request, or `sign()` to create a pre-signed URL and send it with regular `fetch()`. Native `Response` objects make it easy to stream downloads, inspect headers, and integrate with web frameworks.
 
