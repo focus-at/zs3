@@ -47,22 +47,7 @@ export const getObjectVersion = (client: ZS3Client, key: string, versionId: stri
   { method: "GET", bucket, key }, // FIXME
   { query: { versionId } },
 );
-export const deleteObjectVersion = (client: ZS3Client, key: string, versionId: string) => client.exec(
-  { method: "DELETE", bucket, key },
-  { query: { versionId } },
-);
 
-// List object versions after enabling versioning on the bucket.
-export const listObjectVersions = (client: ZS3Client, prefix: string) => client.exec(
-  { method: "GET", bucket, prefix, key: "" },
-  { query: { versions: "" } },
-);
-
-// Read or delete a specific version using its VersionId from ListVersionsResult.
-export const getObjectVersion = (client: ZS3Client, key: string, versionId: string) => client.exec(
-  { method: "GET", bucket, key }, // FIXME
-  { query: { versionId } },
-);
 export const deleteObjectVersion = (client: ZS3Client, key: string, versionId: string) => client.exec(
   { method: "DELETE", bucket, key },
   { query: { versionId } },
