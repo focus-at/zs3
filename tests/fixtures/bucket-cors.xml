@@ -1,0 +1,1 @@
+<CORSConfiguration><CORSRule><AllowedOrigin>https://app.example.test</AllowedOrigin><AllowedMethod>GET</AllowedMethod><AllowedHeader>*</AllowedHeader></CORSRule></CORSConfiguration>

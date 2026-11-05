@@ -1,0 +1,1 @@
+<NotificationConfiguration><QueueConfiguration><Queue>arn:aws:sqs:us-east-1:123456789012:events</Queue><Event>s3:ObjectCreated:*</Event></QueueConfiguration></NotificationConfiguration>

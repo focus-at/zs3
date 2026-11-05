@@ -1,0 +1,1 @@
+<ListVersionsResult><Name>demo-bucket</Name><Prefix>reports/</Prefix><IsTruncated>false</IsTruncated><Version><Key>reports/annual.pdf</Key><VersionId>version-123</VersionId><IsLatest>true</IsLatest><LastModified>2026-01-01T00:00:00.000Z</LastModified><ETag>"version-etag"</ETag><Size>42</Size><StorageClass>STANDARD</StorageClass></Version></ListVersionsResult>

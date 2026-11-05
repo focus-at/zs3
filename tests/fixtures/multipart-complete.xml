@@ -1,0 +1,1 @@
+<CompleteMultipartUploadResult><Location>https://s3.example.test/demo-bucket/large-archive.zip</Location><Bucket>demo-bucket</Bucket><Key>large-archive.zip</Key><ETag>"complete-etag"</ETag></CompleteMultipartUploadResult>

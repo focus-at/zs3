@@ -1,0 +1,1 @@
+<LifecycleConfiguration><Rule><ID>expire-old-reports</ID><Status>Enabled</Status><Expiration><Days>90</Days></Expiration></Rule></LifecycleConfiguration>
