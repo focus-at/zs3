@@ -102,9 +102,8 @@ export function zs3(opts: ZS3Config): ZS3Client {
     const credential = `${accessKeyId}/${scope}`;
     const isStream = body?.getReader;
     const payloadHash = isPresigned || isStream ? UNSIGNED : await hash(body || '');
-
-    const queryObj: Record<string, any> = {
-      ...options.query,
+    const query = {
+      ...(options.query || {}),
       ...((method === 'GET' && !req.key) && { 'list-type': 2, maxKeys, prefix }), // TODO maxKeys or max-keys
       ...(isPresigned && { [X + 'Expires']: options.expiresIn ?? 900 })
     };
@@ -118,8 +117,7 @@ export function zs3(opts: ZS3Config): ZS3Client {
     assignDashCase(headers, options.headers, "");
     assignDashCase(headers, options.meta, `${X}meta-`);
 
-    // Тут добавляем либо в query либо в headers
-    assign(isPresigned ? queryObj : headers, {
+    assign(isPresigned ? query : headers, {
       [X + 'Date']: isoDate,
       [X + 'Algorithm']: SIGN_P,
       [X + CREDENTIAL]: credential,
@@ -127,8 +125,8 @@ export function zs3(opts: ZS3Config): ZS3Client {
       ...(isPresigned && { [X + S_HEADERS]: 'host' })
     });
 
-    const sortedQuery = keys(queryObj).sort().map(k =>
-      `${awsEncodeURI(isPresigned ? k : toKebabCase(k))}=${awsEncodeURI(String(queryObj[k] ?? ''))}`
+    const sortedQuery = keys(query).sort().map(k =>
+      `${awsEncodeURI(isPresigned ? k : toKebabCase(k))}=${awsEncodeURI(String(query[k] ?? ''))}`
     ).join('&');
 
     const sortedHeaders = keys(headers).sort();
