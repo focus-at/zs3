@@ -45,9 +45,9 @@ export const hash = async (data: any) => toHex(await subtle.digest(ALG_HASH, toA
 const toKebabCase = (str: string): string =>
   str.replace(RE_DASH_CASE, "-$&").toLowerCase();
 
-const assignDashCase = (target: Record<string, string>, source: Record<string, any> | undefined, prefix = '') => {
-  for (const k in source) source[k] && (target[toKebabCase(prefix + k)] = String(source[k]));
-  return target;
+const toDashKV = (source: any, prefix = '', res: Record<string, string> = {}) => {
+  for (const k in source) source[k] && (res[toKebabCase(prefix + k)] = String(source[k]));
+  return res;
 };
 
 const awsEncodeURI = (str: string): string =>
@@ -108,14 +108,13 @@ export function zs3(opts: ZS3Config): ZS3Client {
       ...(isPresigned && { [X + 'Expires']: options.expiresIn ?? 900 })
     };
 
-    const headers: Record<string, string> = {
+    const headers: Record<string, string> = toDashKV(options.headers, '', {
       host,
-      [`${X}content-sha256`.toLowerCase()]: payloadHash,
-      ...(body && !isStream ? { 'content-length': String(toArrayBuffer(body).byteLength) } : {})
-    };
+      [X + 'content-sha256']: payloadHash,
+      ...(body && !isStream ? { 'content-length': String(toArrayBuffer(body).byteLength) } : {}),
+    });
 
-    assignDashCase(headers, options.headers, "");
-    assignDashCase(headers, options.meta, `${X}meta-`);
+    toDashKV(options.meta, X + 'meta-', headers);
 
     assign(isPresigned ? query : headers, {
       [X + 'Date']: isoDate,
