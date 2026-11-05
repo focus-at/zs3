@@ -22,8 +22,8 @@ const S_HEADERS = ('SignedHeaders' + '');
 const SIGN_P = [AWS4, ALG_NAME, 'SHA256'].join('-');
 const RE_ISO_DATE = /[:-]|\.\d{3}/g;
 const RE_XML_TAGS = /<(\w[-\w]*)(?:\/|[^>]*>((?:(?!<\1)[\s\S])*)<\/\1)>/gm;
+const RE_DASH_CASE = /\B[A-Z]/g;
 const RE_ENCODE_URI = /[!'()*]/g;
-const RE_KEBAB_CASE = /\B[A-Z]/g;
 
 const encoder = new TextEncoder();
 
@@ -43,7 +43,7 @@ export const chainHmac = (key: any, ...steps: string[]) =>
 export const hash = async (data: any) => toHex(await subtle.digest(ALG_HASH, toArrayBuffer(data)));
 
 const toKebabCase = (str: string): string =>
-  str.replace(RE_KEBAB_CASE, "-$&").toLowerCase();
+  str.replace(RE_DASH_CASE, "-$&").toLowerCase();
 
 const assignDashCase = (target: Record<string, string>, source?: Record<string, any>, prefix = '') => (
   entries(source ?? {}).forEach(([k, v]) =>
@@ -94,8 +94,8 @@ export function zs3(opts: ZS3Config): ZS3Client {
   const [,protocol = (globalThis.location?.protocol || 'https'), host = ''] = endpoint?.match(/^(?:([^/:]+)?:\/\/)?([^/:]+)/) || [];
 
   const prepare = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}, isPresigned = false) => {
-    const { method, body, maxKeys = 1000, prefix = '' } = req as ZS3RequestOptions & (ZS3PutOptions & ZS3GetOptions);
-    const pathname = ([req.bucket || config.bucket, req.key].filter(Boolean).join('/').replace(/\/+/g, '/') || '/');
+    const { method, body, maxKeys = 1000, prefix = '', bucket = config.bucket, key = '' } = req as ZS3RequestOptions & (ZS3PutOptions & ZS3GetOptions);
+    const pathname = `/${bucket}${bucket && key ? '/' : ''}${key}` || '/';
     const requestUrl = new URL(pathname, `${protocol}://${host}`);
     const isoDate = new Date().toISOString().replace(RE_ISO_DATE, '');
     const sDate = isoDate.slice(0, 8);
@@ -145,7 +145,7 @@ export function zs3(opts: ZS3Config): ZS3Client {
         scope,
         await hash([
           method,
-          pathname || '/',
+          pathname,
           sortedQuery,
           ...(isPresigned
             ? [`host:${host}`, '', 'host', UNSIGNED]
