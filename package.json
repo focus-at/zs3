@@ -1,6 +1,6 @@
 {
   "name": "@focus-at/zs3",
-  "version": "0.0.34",
+  "version": "0.0.35",
   "description": "Zero-dependency micro S3 client built on Web Standards",
   "homepage": "https://github.com/focus-at/zs3",
   "type": "module",
