@@ -5,6 +5,7 @@ export interface ZS3Config {
   sessionToken?: string;
   bucket?: string;
   region?: string;
+  parser?: (xml: string) => any;
   [key: string]: any;
 }
 

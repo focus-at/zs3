@@ -9,6 +9,7 @@ import type {
 
 const { subtle } = crypto;
 const { assign, keys } = Object;
+const DEFAULT_PROTOCOL = (globalThis.location?.protocol || 'https');
 const ALG_NAME = ('HMAC' + '');
 const ALG_HASH = ('SHA-256' + '');
 const AWS4 = ('AWS4' + '');
@@ -52,6 +53,7 @@ const toDashKV = (source: any, prefix = '', res: Record<string, string> = {}) =>
 const awsEncodeURI = (str: string): string =>
   encodeURIComponent(str).replace(RE_ENCODE_URI, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 
+// Converts a XML string into an object.
 const parseXml = (str: string): any => {
   const types: Record<string, any> = { "": "", "true": true, "false": false };
   const m = [...str.matchAll(RE_XML_TAGS)];
@@ -77,7 +79,7 @@ const parseXml = (str: string): any => {
   }, {});
 
   const root = keys(currentLevelTags);
-  const data = root.length === 1 ? currentLevelTags[root[0]] : currentLevelTags;
+  const data = root.length === 1 ? currentLevelTags[root[0] as string] : currentLevelTags;
 
   if (!Array.isArray(data?.Contents ?? [])) {
     data.Contents = [data.Contents];
@@ -86,13 +88,12 @@ const parseXml = (str: string): any => {
   return data;
 };
 
-export function zs3(opts: ZS3Config): ZS3Client {
-  const config = { region: 'us-east-1', bucket: '', ...opts };
-  const { endpoint, region, accessKeyId, secretAccessKey, sessionToken } = config;
-  const [,protocol = (globalThis.location?.protocol || 'https'), host = ''] = endpoint?.match(/^(?:([^/:]+)?:\/\/)?([^/:]+)/) || [];
+export function zs3({ region = 'us-east-1', parser = parseXml, ...config }: ZS3Config): ZS3Client {
+  const { endpoint, accessKeyId, secretAccessKey, sessionToken } = config;
+  const [,protocol = DEFAULT_PROTOCOL, host = ''] = endpoint?.match(/^(?:([^/:]+)?:\/\/)?([^/:]+)/) || [];
 
   const prepare = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}, isPresigned = false) => {
-    const { method, body, maxKeys = 1000, prefix = '', bucket = config.bucket, key = '' } = req as ZS3RequestOptions & (ZS3PutOptions & ZS3GetOptions);
+    const { method, body, maxKeys = 1000, prefix = '', bucket = config.bucket || '', key = '' } = req as ZS3RequestOptions & (ZS3PutOptions & ZS3GetOptions);
     const pathname = `/${bucket}${bucket && key ? '/' : ''}${key}` || '/';
     const requestUrl = new URL(pathname, `${protocol}://${host}`);
     const isoDate = new Date().toISOString().replace(RE_ISO_DATE, '');
@@ -124,7 +125,7 @@ export function zs3(opts: ZS3Config): ZS3Client {
     });
 
     const sortedQuery = keys(query).sort().map(k =>
-      `${awsEncodeURI(isPresigned ? k : toKebabCase(k))}=${awsEncodeURI(String(query[k] ?? ''))}`
+      `${awsEncodeURI(isPresigned ? k : toKebabCase(k))}=${awsEncodeURI(query[k] ?? '')}`
     ).join('&');
 
     const sortedHeaders = keys(headers).sort();
@@ -169,7 +170,7 @@ export function zs3(opts: ZS3Config): ZS3Client {
     sign: (req, options) => prepare(req, options, true).then(r => r.requestUrl),
     exec: (req, options) => prepare(req, options, false).then(({ requestUrl, ...init }) =>
       fetch(requestUrl, init)
-        .then(res => assign(res, { json: () => res.text().then(parseXml) }))
+        .then(res => assign(res, { json: () => res.text().then(parser) }))
         .catch((err: any) => {
           throw {
             Code: err.name,
@@ -177,6 +178,6 @@ export function zs3(opts: ZS3Config): ZS3Client {
           };
         })
     ),
-    clone: (newConfig = {}) => zs3({ ...config, ...newConfig })
+    clone: (newConfig = {}) => zs3({ region, parser, ...config, ...newConfig })
   };
 }
