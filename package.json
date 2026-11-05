@@ -10,7 +10,7 @@
       "default": "./dist/index.js"
     },
     "./types": {
-      "types": "./types.ts"
+      "types": "./types.d.ts"
     }
   },
   "scripts": {
@@ -64,7 +64,7 @@
   "files": [
     "dist",
     "index.ts",
-    "types.ts",
+    "types.d.ts",
     "README.md",
     "LICENSE"
   ],
