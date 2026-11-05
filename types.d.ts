@@ -42,10 +42,6 @@ export type ZS3RequestOptions =
   | ({ method: 'HEAD' } & ZS3ObjectOptions)
   | ({ method: 'POST' } & ZS3PutOptions);
 
-export interface ZS3Response<T> extends Response {
-  json(): Promise<T>;
-}
-
 export interface ZS3Owner {
   ID: string;
   DisplayName?: string;
@@ -89,7 +85,9 @@ export interface ZS3Client {
   sign(req: ZS3RequestOptions, options?: ZS3Options & { expiresIn?: number }): Promise<URL>;
 
   /** exec an S3 request directly (supports GET, PUT, DELETE, HEAD) */
-  exec<T = unknown>(req: ZS3RequestOptions, options?: ZS3Options): Promise<ZS3Response<T>>;
+  exec<T = unknown>(req: ZS3RequestOptions, options?: ZS3Options): Promise<Response & {
+      json: () => Promise<T>;
+  }>;
 
   /** Create a new client instance by shallow-merging the current config with overrides */
   clone(newConfig?: Partial<ZS3Config>): ZS3Client;

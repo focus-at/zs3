@@ -5,7 +5,6 @@ import type {
   ZS3Options,
   ZS3PutOptions,
   ZS3RequestOptions,
-  ZS3Response,
 } from "./types.ts";
 
 const { subtle } = crypto;
@@ -169,18 +168,14 @@ export function zs3(opts: ZS3Config): ZS3Client {
   const sign = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}): Promise<URL> =>
     (await prepare(req, options, true)).requestUrl
 
-  const exec = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}): Promise<ZS3Response<T>> => {
+  const exec = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}) => {
     const { requestUrl, ...init } = await prepare(req, options, false);
 
     try {
-      const res = await fetch(requestUrl, init);
-      const isList = req.method === 'GET' && !req.key;
-
-      if (!res.ok || isList || req.method === 'POST') {
-        return Response.json(parseXml((await res.text()).trim()), { status: res.status }) as ZS3Response<T>;
-      }
-
-      return res as ZS3Response<T>;
+      const res = assign(await fetch(requestUrl, init), {
+        json: (): Promise<T> => res.text().then(parseXml)
+      });
+      return res;
     } catch ({ name, message }: any) {
       throw {
         Code: name,
