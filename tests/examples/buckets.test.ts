@@ -126,7 +126,6 @@ describe("bucket examples", () => {
       expect(request.init.method, item.name).toBe(item.method);
       expect(request.url.pathname, item.name).toBe("/demo-bucket");
       expect(request.url.searchParams.has(item.subresource), item.name).toBe(true);
-
       if (item.requestFixture) {
         expect(request.init.body).toBe((await readFixture(item.requestFixture)));
         expect(new Headers(request.init.headers).get("content-type"), item.name).toBe("application/xml");
