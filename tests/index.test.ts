@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { hash, hmac, toHex } from "../index.ts";
+import { hash, chainHmac, toHex } from "../index.ts";
 
 describe("cryptography", () => {
   test("computes a deterministic HMAC and hex representation", async () => {
-    const signature = await hmac("secret", "data");
-    expect(signature).toBeInstanceOf(Uint8Array);
-    expect(toHex(signature)).toBe("1b2c16b75bd2a870c114153ccda5bcfca63314bc722fa160d690de133ccbb9db");
+    expect(await chainHmac("secret", "data")).toBe("1b2c16b75bd2a870c114153ccda5bcfca63314bc722fa160d690de133ccbb9db");
   });
 
   test("computes SHA-256", async () => {

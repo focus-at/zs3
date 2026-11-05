@@ -9,10 +9,13 @@ import type {
 } from "./types.ts";
 
 const { subtle } = crypto;
+const { assign, keys } = Object;
 const ALG_NAME = ('HMAC' + '');
 const ALG_HASH = ('SHA-256' + '');
 const AWS4 = ('AWS4' + '');
+const AWS_REQUEST = ('aws4_request' + '');
 const X = ('X-Amz-' + '');
+const NEW_LINE = ('\n' + '');
 const UNSIGNED = ('UNSIGNED-PAYLOAD' + '');
 const CREDENTIAL = ('Credential' + '');
 const SIGNATURE = ('Signature' + '');
@@ -22,32 +25,29 @@ const RE_ISO_DATE = /[:-]|\.\d{3}/g;
 const RE_XML_TAGS = /<(\w[-\w]*)(?:\/|[^>]*>((?:(?!<\1)[\s\S])*)<\/\1)>/gm;
 const RE_DASH_CASE = /\B[A-Z]/g;
 const RE_ENCODE_URI = /[!'()*]/g;
-const RE_LEADING_SLASHES = /^\/*/;
 
 const encoder = new TextEncoder();
 
 const toArrayBuffer = (d: any): ArrayBuffer =>
-  d instanceof ArrayBuffer ? d : d?.buffer?.constructor === ArrayBuffer ? d.buffer : encoder.encode(d == null ? '' : `${d}`).buffer;
+  d instanceof ArrayBuffer ? d : (d?.buffer?.constructor === ArrayBuffer ? d : encoder.encode(d ?? '')).buffer;
 
-export const toHex = (buf: ArrayBuffer | Uint8Array):string =>
-  Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+export const toHex = (buf: ArrayBuffer | Uint8Array): string =>
+  new Uint8Array(buf).reduce((acc, b) => acc + b.toString(16).padStart(2, '0'), '')
 
-export const hmac = async (key: string | Uint8Array | ArrayBuffer, data: string): Promise<Uint8Array> => {
-  const cryptoKey = await subtle.importKey('raw', toArrayBuffer(key), { name: ALG_NAME, hash: ALG_HASH}, false, ['sign']);
-  return new Uint8Array(await subtle.sign(ALG_NAME, cryptoKey, encoder.encode(data)));
-};
+export const chainHmac = (key: any, ...steps: string[]) =>
+  steps.reduce(async (k, step) => {
+    const cryptoKey = await subtle.importKey('raw', toArrayBuffer(await k), { name: ALG_NAME, hash: ALG_HASH }, false, ['sign']);
+    return subtle.sign(ALG_NAME, cryptoKey, encoder.encode(step));
+  }, key).then(toHex);
 
 export const hash = async (data: any) => toHex(await subtle.digest(ALG_HASH, toArrayBuffer(data)));
 
 const toKebabCase = (str: string): string =>
   str.replace(RE_DASH_CASE, "-$&").toLowerCase();
 
-const assignDashCase = (target: Record<string, string>, source: Record<string, any> | undefined, prefix: string): Record<string, string> => {
-  if (source) Object.keys(source).forEach(key => {
-    const name = toKebabCase(prefix + key);
-    if (source[key] && typeof source[key] !== 'object') target[name] = `${source[key]}`;
-  });
-  return target;
+const toDashKV = (source: any, prefix = '', res: Record<string, string> = {}) => {
+  for (const k in source) source[k] && (res[toKebabCase(prefix + k)] = String(source[k]));
+  return res;
 };
 
 const awsEncodeURI = (str: string): string =>
@@ -77,8 +77,8 @@ const parseXml = (str: string): any => {
     return acc;
   }, {});
 
-  const keys = Object.keys(currentLevelTags);
-  const data = keys.length === 1 ? currentLevelTags[keys[0]] : currentLevelTags;
+  const root = keys(currentLevelTags);
+  const data = root.length === 1 ? currentLevelTags[root[0]] : currentLevelTags;
 
   if (!Array.isArray(data?.Contents ?? [])) {
     data.Contents = [data.Contents];
@@ -93,61 +93,72 @@ export function zs3(opts: ZS3Config): ZS3Client {
   const [,protocol = (globalThis.location?.protocol || 'https'), host = ''] = endpoint?.match(/^(?:([^/:]+)?:\/\/)?([^/:]+)/) || [];
 
   const prepare = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}, isPresigned = false) => {
-    const { method, body, maxKeys = 1000, prefix = '', bucket = config.bucket } = req as ZS3RequestOptions & (ZS3PutOptions & ZS3GetOptions);
-    const cleanKey = req.key?.replace(RE_LEADING_SLASHES, '') ?? '';
-    const uri = bucket ? `/${bucket}/${cleanKey}` : `/${cleanKey}`;
+    const { method, body, maxKeys = 1000, prefix = '', bucket = config.bucket, key = '' } = req as ZS3RequestOptions & (ZS3PutOptions & ZS3GetOptions);
+    const pathname = `/${bucket}${bucket && key ? '/' : ''}${key}` || '/';
+    const requestUrl = new URL(pathname, `${protocol}://${host}`);
     const isoDate = new Date().toISOString().replace(RE_ISO_DATE, '');
     const sDate = isoDate.slice(0, 8);
-    const scope = `${sDate}/${region}/s3/aws4_request`;
+    const scope = `${sDate}/${region}/s3/${AWS_REQUEST}`;
     const credential = `${accessKeyId}/${scope}`;
     const isStream = body?.getReader;
     const payloadHash = isPresigned || isStream ? UNSIGNED : await hash(body || '');
-
-    const queryObj: Record<string, any> = {
-      ...options.query,
-      ...((method === 'GET' || !req.key) && { 'list-type': 2, maxKeys, prefix })
+    const query = {
+      ...(options.query || {}),
+      ...((method === 'GET' && !req.key) && { 'list-type': 2, maxKeys, prefix }), // TODO maxKeys or max-keys
+      ...(isPresigned && { [X + 'Expires']: options.expiresIn ?? 900 })
     };
 
-    if (isPresigned) {
-       queryObj[X + 'Expires'] = options.expiresIn ?? 900;
-    }
-
-    const rawHeaders: Record<string, string> = assignDashCase(assignDashCase({
+    const headers: Record<string, string> = toDashKV(options.headers, '', {
       host,
       [X + 'content-sha256']: payloadHash,
-      ...(body && !isStream ? { 'content-length': `${toArrayBuffer(body).byteLength}` } : {})
-    }, options.headers, ""), options.meta, X + 'meta-');
+      ...(body && !isStream ? { 'content-length': String(toArrayBuffer(body).byteLength) } : {}),
+    });
 
-    const target = isPresigned ? queryObj : rawHeaders;
+    toDashKV(options.meta, X + 'meta-', headers);
 
-    target[X + 'Date'] = isoDate;
-    target[X + 'Algorithm'] = SIGN_P;
-    target[X + CREDENTIAL] = credential;
+    assign(isPresigned ? query : headers, {
+      [X + 'Date']: isoDate,
+      [X + 'Algorithm']: SIGN_P,
+      [X + CREDENTIAL]: credential,
+      ...(sessionToken && { [X + 'Security-Token']: sessionToken }),
+      ...(isPresigned && { [X + S_HEADERS]: 'host' })
+    });
 
-    if (sessionToken) target[X + 'Security-Token'] = sessionToken;
-    if (isPresigned) target[X + S_HEADERS] = 'host';
+    const sortedQuery = keys(query).sort().map(k =>
+      `${awsEncodeURI(isPresigned ? k : toKebabCase(k))}=${awsEncodeURI(String(query[k] ?? ''))}`
+    ).join('&');
 
-    const sortedQuery = Object.entries(queryObj)
-      .sort()
-      .map(([k, v]) => `${isPresigned ? awsEncodeURI(k) : toKebabCase(k)}=${awsEncodeURI(String(v ?? ''))}`)
-      .join('&');
-
-    const headers = Object.fromEntries(Object.entries(rawHeaders).map(([k, v]) => [k.toLowerCase(), v]));
-    const sortedHeaders = Object.keys(headers).sort();
-
-    const start = `${method}\n${uri}\n${sortedQuery}\n`;
-    const canonical = start + (isPresigned
-      ? `host:${host}\n\nhost\n${UNSIGNED}`
-      : `${sortedHeaders.map(k => `${k}:${headers[k]?.trim()}`).join('\n')}\n\n${sortedHeaders.join(';')}\n${payloadHash}`
+    const sortedHeaders = keys(headers).sort();
+    const signature = await chainHmac(
+      `${AWS4}${secretAccessKey}`,
+      sDate,
+      region,
+      's3',
+      AWS_REQUEST,
+      [
+        SIGN_P,
+        isoDate,
+        scope,
+        await hash([
+          method,
+          pathname,
+          sortedQuery,
+          ...(isPresigned
+            ? [`host:${host}`, '', 'host', UNSIGNED]
+            : [
+              sortedHeaders.map(k => `${k}:${headers[k]?.trim()}`).join(NEW_LINE),
+              '',
+              sortedHeaders.join(';'),
+              payloadHash
+            ])
+        ].join(NEW_LINE))
+      ].join(NEW_LINE)
     );
-    const kSign = await hmac(await hmac(await hmac(await hmac(`${AWS4}${secretAccessKey}`, sDate), region), 's3'), 'aws4_request');
-    const signature = toHex(await hmac(kSign, [SIGN_P, isoDate, scope, await hash(canonical)].join('\n')));
 
-    const requestUrl = new URL(uri, `${protocol}://${host}`);
-    if (sortedQuery) requestUrl.search = sortedQuery;
+    requestUrl.search = sortedQuery;
 
     if (isPresigned) {
-       requestUrl.searchParams.append(X + SIGNATURE, signature);
+      requestUrl.searchParams.append(X + SIGNATURE, signature);
     } else {
       headers['Authorization'] = `${SIGN_P} ${CREDENTIAL}=${credential}, ${S_HEADERS}=${sortedHeaders.join(';')}, ${SIGNATURE}=${signature}`;
     }
@@ -155,17 +166,17 @@ export function zs3(opts: ZS3Config): ZS3Client {
     return { requestUrl, headers, body, method };
   };
 
-  const sign = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}): Promise<string> => {
-    const { requestUrl } = await prepare(req, options, true);
-    return requestUrl.toString();
-  };
+  const sign = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}): Promise<URL> =>
+    (await prepare(req, options, true)).requestUrl
 
   const exec = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}): Promise<ZS3Response<T>> => {
     const { requestUrl, ...init } = await prepare(req, options, false);
 
     try {
       const res = await fetch(requestUrl, init);
-      if (!res.ok || (req.method === 'GET' && !req.key) || req.method === 'POST') {
+      const isList = req.method === 'GET' && !req.key;
+
+      if (!res.ok || isList || req.method === 'POST') {
         return Response.json(parseXml((await res.text()).trim()), { status: res.status }) as ZS3Response<T>;
       }
 

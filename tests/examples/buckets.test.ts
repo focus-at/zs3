@@ -109,7 +109,7 @@ describe("bucket examples", () => {
     await deleteBucket(client());
 
     expect(requests.map(({ init }) => init.method)).toEqual(["PUT", "DELETE"]);
-    expect(requests.map(({ url }) => url.pathname)).toEqual(["/demo-bucket/", "/demo-bucket/"]);
+    expect(requests.map(({ url }) => url.pathname)).toEqual(["/demo-bucket", "/demo-bucket"]);
   });
 
   test("exercises every bucket configuration helper", async () => {
@@ -124,9 +124,8 @@ describe("bucket examples", () => {
       await item.run(api);
       const request = requests[index];
       expect(request.init.method, item.name).toBe(item.method);
-      expect(request.url.pathname, item.name).toBe("/demo-bucket/");
+      expect(request.url.pathname, item.name).toBe("/demo-bucket");
       expect(request.url.searchParams.has(item.subresource), item.name).toBe(true);
-      expect(request.url.searchParams.has("list-type"), item.name).toBe(true);
       if (item.requestFixture) {
         expect(request.init.body).toBe((await readFixture(item.requestFixture)));
         expect(new Headers(request.init.headers).get("content-type"), item.name).toBe("application/xml");

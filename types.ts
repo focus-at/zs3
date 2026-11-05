@@ -86,7 +86,7 @@ export interface ZS3Objects {
 
 export interface ZS3Client {
   /** Generate a presigned URL for secure, temporary access to an S3 object */
-  sign(req: ZS3RequestOptions, options?: ZS3Options & { expiresIn?: number }): Promise<string>;
+  sign(req: ZS3RequestOptions, options?: ZS3Options & { expiresIn?: number }): Promise<URL>;
 
   /** exec an S3 request directly (supports GET, PUT, DELETE, HEAD) */
   exec<T = unknown>(req: ZS3RequestOptions, options?: ZS3Options): Promise<ZS3Response<T>>;
