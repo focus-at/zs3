@@ -1,7 +1,7 @@
 {
   "name": "@focus-at/zs3",
   "version": "0.0.36",
-  "description": "Zero-dependency micro S3 client built on Web Standards",
+  "description": "Zero-dependency 3 KB S3 client built on Web Standards for AWS, Edge, Cloudflare Workers, Bun, Node, and browser runtimes.",
   "homepage": "https://github.com/focus-at/zs3",
   "type": "module",
   "exports": {
