@@ -165,28 +165,23 @@ export function zs3(opts: ZS3Config): ZS3Client {
     return { requestUrl, headers, body, method };
   };
 
-  const sign = async (req: ZS3RequestOptions, options: ZS3Options & { expiresIn?: number } = {}): Promise<URL> =>
-    (await prepare(req, options, true)).requestUrl
-
-  const exec = async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options = {}) => {
-    const { requestUrl, ...init } = await prepare(req, options, false);
-
-    try {
-      const res = assign(await fetch(requestUrl, init), {
-        json: (): Promise<T> => res.text().then(parseXml)
-      });
-      return res;
-    } catch ({ name, message }: any) {
-      throw {
-        Code: name,
-        Message: message
-      };
-    }
-  };
-
   return {
-    sign,
-    exec,
+    sign: async (req, options) => (await prepare(req, options, true)).requestUrl,
+    exec: async <T = unknown>(req: ZS3RequestOptions, options: ZS3Options) => {
+      const { requestUrl, ...init } = await prepare(req, options, false);
+
+      try {
+        const res = assign(await fetch(requestUrl, init), {
+          json: (): Promise<T> => res.text().then(parseXml)
+        });
+        return res;
+      } catch ({ name, message }: any) {
+        throw {
+          Code: name,
+          Message: message
+        };
+      }
+    },
     clone: (newConfig = {}) => zs3({ ...config, ...newConfig })
   };
 }
