@@ -65,7 +65,7 @@ export const handler = (res: Response) => {
     json: async () => {
       const reader = res.body?.getReader();
       const stack = [{ data: {}, key: "" }];
-      const str = (s: number, e: number) => decoder.decode(buf.subarray(s, e)).trim();
+      const str = (s: number, e: number) => decoder.decode(buf.subarray(s, e)).replace(/"/g, '').trim();
 
       let buf = new Uint8Array(64 * 1024);
       let bufLen = 0, cursor = 0, textStart = -1;
