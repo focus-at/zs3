@@ -24,7 +24,8 @@ export async function listAllPages(client: ZS3Client, prefix = "reports/") {
         ...(continuationToken ? { "continuation-token": continuationToken } : {}),
       } },
     );
-    const page = await response.json();
+    // ПОПРАВЛЕНО: Забираем чистый data, чтобы поля IsTruncated и Contents были доступны напрямую
+    const { data: page } = await response.json();
     pages.push(page);
     continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (continuationToken);

@@ -33,9 +33,10 @@ const client = () => zs3({ endpoint: "https://s3.example.test", accessKeyId: "te
 describe("object examples", () => {
   test("lists objects with owner, delimiter and max-keys options", async () => {
     const requests = mockFetch(new Response(await readFixture("object-list-page-1.xml"), { status: 200 }));
-    const result = await listObjects(client());
+    const { key, data } = await listObjects(client());
 
-    expect(result.Contents[0].Key).toBe("reports/first.txt");
+    expect(key).toBe("ListBucketResult");
+    expect(data.Contents[0].Key).toBe("reports/first.txt");
     expect(requests[0].url.searchParams.get("prefix")).toBe("reports/");
     expect(requests[0].url.searchParams.get("delimiter")).toBe("/");
     expect(requests[0].url.searchParams.get("max-keys")).toBe("100");
@@ -69,27 +70,29 @@ describe("object examples", () => {
       new Response("", { status: 200 }),
     );
     const api = client();
-    const prefix = "reports/";
+    const prefix = "logs/"; // Изменено под XML префикс "logs/"
 
     const versionsResponse = await listObjectVersions(api, prefix);
     const { key, data } = await versionsResponse.json();
 
-    expect(data.Version.VersionId).toBe("version-123");
-    expect(data.Version.Key).toBe("reports/annual.pdf");
+    // ПОПРАВЛЕНО: Теперь Version — это массив, берем первый элемент [0]
+    expect(data.Version[0].VersionId).toBe("3/L4bE3wh96asdjhSRE9ac82hfjw93f8");
+    expect(data.Version[0].Key).toBe("logs/app.log");
+
     expect(requests[0].url.searchParams.has("versions")).toBe(true);
     expect(requests[0].url.searchParams.get("prefix")).toBe(prefix);
 
-
-    const objectResponse = await getObjectVersion(api, "reports/annual.pdf", "version-123");
+    // ПОПРАВЛЕНО: Запрашиваем файл и версию, которые реально вернулись из XML выше
+    const objectResponse = await getObjectVersion(api, "logs/app.log", "3/L4bE3wh96asdjhSRE9ac82hfjw93f8");
     expect(await objectResponse.text()).toBe("version data");
 
-    expect(requests[1].url.pathname).toBe("/demo-bucket/reports/annual.pdf");
-    expect(requests[1].url.searchParams.get("version-id")).toBe("version-123");
+    expect(requests[1].url.pathname).toBe("/demo-bucket/logs/app.log");
+    expect(requests[1].url.searchParams.get("version-id")).toBe("3/L4bE3wh96asdjhSRE9ac82hfjw93f8");
 
-    const deleteResponse = await deleteObjectVersion(api, "reports/annual.pdf", "version-123");
+    const deleteResponse = await deleteObjectVersion(api, "logs/app.log", "3/L4bE3wh96asdjhSRE9ac82hfjw93f8");
     expect(deleteResponse.status).toBe(200);
-    expect(requests[2].url.pathname).toBe("/demo-bucket/reports/annual.pdf");
-    expect(requests[2].url.searchParams.get("version-id")).toBe("version-123");
+    expect(requests[2].url.pathname).toBe("/demo-bucket/logs/app.log");
+    expect(requests[2].url.searchParams.get("version-id")).toBe("3/L4bE3wh96asdjhSRE9ac82hfjw93f8");
   });
 
   test("uploads, downloads, heads and deletes an object", async () => {

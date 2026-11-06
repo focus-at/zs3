@@ -102,7 +102,7 @@ export const handler = (res: Response) => {
             const tag = str(start, end);
 
             if (!stack[0].key && !isClose) {
-              stack[0].key = tag;
+              stack[0].key = tag.split(' ')[0];
               cursor = end + 1;
               continue;
             }
@@ -149,6 +149,12 @@ export const handler = (res: Response) => {
           cursor -= keep;
           if (textStart !== -1) textStart -= keep;
         }
+      }
+
+      const { data } = stack[0];
+
+      for (const k in data) {
+        data[k] = data[k]?.Key ? [data[k]] : data[k];
       }
 
       return stack[0];
