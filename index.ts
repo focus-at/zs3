@@ -7,8 +7,6 @@ import type {
   ZS3RequestOptions,
 } from "./types.ts";
 
-const { subtle } = crypto;
-const { assign, keys } = Object;
 const DEFAULT_PROTOCOL = (globalThis.location?.protocol || 'https');
 const ALG_NAME = ('HMAC' + '');
 const ALG_HASH = ('SHA-256' + '');
@@ -22,10 +20,17 @@ const SIGNATURE = ('Signature' + '');
 const S_HEADERS = ('SignedHeaders' + '');
 const SIGN_P = [AWS4, ALG_NAME, 'SHA256'].join('-');
 const RE_ISO_DATE = /[:-]|\.\d{3}/g;
-const RE_XML_TAGS = /<(\w[-\w]*)(?:\/|[^>]*>((?:(?!<\1)[\s\S])*)<\/\1)>/gm;
 const RE_DASH_CASE = /\B[A-Z]/g;
 const RE_ENCODE_URI = /[!'()*]/g;
-
+const LT = 60; // <
+const GT = 62; // >
+const SLASH = 47; // /
+const QUEST = 63; // ?
+const EXCL = 33; // !
+const TYPES = { "true": true, "false": false, "": "" };
+const { subtle } = crypto;
+const { assign, keys } = Object;
+const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
 const toArrayBuffer = (d: any): ArrayBuffer =>
@@ -46,49 +51,100 @@ const toKebabCase = (str: string): string =>
   str.replace(RE_DASH_CASE, "-$&").toLowerCase();
 
 const toDashKV = (source: any, prefix = '', res: Record<string, string> = {}) => {
-  for (const k in source) source[k] && (res[toKebabCase(prefix + k)] = String(source[k]));
+  for (const k in source) source[k] && (res[toKebabCase(prefix + k)] = `${source[k]}`);
   return res;
 };
 
 const awsEncodeURI = (str: string): string =>
   encodeURIComponent(str).replace(RE_ENCODE_URI, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 
-// Converts a XML string into an object.
-const parseXml = (str: string): any => {
-  const types: Record<string, any> = { "": "", "true": true, "false": false };
-  const m = [...str.matchAll(RE_XML_TAGS)];
+export const handler = (res: Response) => {
+  if (!res?.body) return res;
 
-  if (!m.length) {
-    return types[str] ?? (isNaN(+str) || str === "" ? str : +str);
-  }
+  return assign(res, {
+    json: async () => {
+      const reader = res.body?.getReader();
+      const data = {};
+      const stack = [data];
+      const str = (s: number, e: number) => decoder.decode(buf.subarray(s, e)).trim();
 
-  const currentLevelTags = m.reduce((acc: any, [, key = '', content = '']) => {
-    let value = parseXml(content);
+      let buf = new Uint8Array(64 * 1024);
+      let bufLen = 0, cursor = 0, textStart = -1, key = "";
+      let chunk;
 
-    if (key === "ETag") {
-      value = value.replace(/"/g, '');
+      while (!(chunk = await reader?.read())?.done) {
+          const value = chunk?.value;
+
+          buf.set(value, bufLen);
+          bufLen += value.length;
+
+          while (cursor < bufLen) {
+              if (buf[cursor] === LT) { // '<'
+                let end = cursor + 1;
+                while (end < bufLen && buf[end] !== GT) end++; // '>'
+                if (end === bufLen) break;
+
+                let start = cursor + 1;
+                const isClose = buf[start] === SLASH;
+                if (isClose) start++;
+
+                if (buf[start] === QUEST || buf[start] === EXCL) {
+                  cursor = end + 1;
+                  continue;
+                }
+
+                const tag = str(start, end);
+
+                if (!key && !isClose) {
+                  key = tag;
+                  cursor = end + 1;
+                  continue;
+                }
+
+                const current = stack[stack.length - 1];
+
+                if (isClose) {
+                    // TEXT
+                    if (textStart !== -1 && cursor > textStart) {
+                        const text = str(textStart, cursor);
+                        const value = TYPES[text] ?? (isNaN(+text) ? text : +text);
+
+                        const parent = stack[stack.length - 2];
+                        const k = Object.keys(parent).find(p => parent[p] === current || (Array.isArray(parent[p]) && parent[p].includes(current)));
+
+                        if (Array.isArray(parent[k])) parent[k][parent[k].length - 1] = value;
+                        else parent[k] = value;
+                    }
+                    if (stack.length > 1) stack.pop();
+                    textStart = -1;
+                  // NODE
+                  } else {
+                      const node = {};
+                      current[tag] = current[tag] !== undefined
+                          ? (Array.isArray(current[tag]) ? [...current[tag], node] : [current[tag], node])
+                          : node;
+                      stack.push(node);
+                      textStart = end + 1;
+                  }
+                  cursor = end + 1;
+              } else {
+                  cursor++;
+              }
+          }
+
+          if (cursor > 0) {
+              buf.set(buf.subarray(cursor, bufLen));
+              bufLen -= cursor;
+              cursor = 0;
+          }
+      }
+
+      return { key, data };
     }
+  });
+}
 
-    if (acc[key] != null) {
-      acc[key] = Array.isArray(acc[key]) ? [...acc[key], value] : [acc[key], value];
-    } else {
-      acc[key] = value;
-    }
-
-    return acc;
-  }, {});
-
-  const root = keys(currentLevelTags);
-  const data = root.length === 1 ? currentLevelTags[root[0] as string] : currentLevelTags;
-
-  if (!Array.isArray(data?.Contents ?? [])) {
-    data.Contents = [data.Contents];
-  }
-
-  return data;
-};
-
-export function zs3({ region = 'us-east-1', parser = parseXml, ...config }: ZS3Config): ZS3Client {
+export function zs3({ region = 'us-east-1', ...config }: ZS3Config): ZS3Client {
   const { endpoint, accessKeyId, secretAccessKey, sessionToken } = config;
   const [,protocol = DEFAULT_PROTOCOL, host = ''] = endpoint?.match(/^(?:([^/:]+)?:\/\/)?([^/:]+)/) || [];
 
@@ -111,7 +167,7 @@ export function zs3({ region = 'us-east-1', parser = parseXml, ...config }: ZS3C
     const headers: Record<string, string> = toDashKV(options.headers, '', {
       host,
       [X + 'content-sha256']: payloadHash,
-      ...(body && !isStream ? { 'content-length': String(toArrayBuffer(body).byteLength) } : {}),
+      ...(body && !isStream ? { 'content-length': `${toArrayBuffer(body).byteLength}` } : {}),
     });
 
     toDashKV(options.meta, X + 'meta-', headers);
@@ -170,7 +226,7 @@ export function zs3({ region = 'us-east-1', parser = parseXml, ...config }: ZS3C
     sign: (req, options) => prepare(req, options, true).then(r => r.requestUrl),
     exec: (req, options) => prepare(req, options, false).then(({ requestUrl, ...init }) =>
       fetch(requestUrl, init)
-        .then(res => assign(res, { json: () => res.text().then(parser) }))
+        .then(config.handler || handler)
         .catch((err: any) => {
           throw {
             Code: err.name,
@@ -178,6 +234,6 @@ export function zs3({ region = 'us-east-1', parser = parseXml, ...config }: ZS3C
           };
         })
     ),
-    clone: (newConfig = {}) => zs3({ region, parser, ...config, ...newConfig })
+    clone: (newConfig = {}) => zs3({ region, ...config, ...newConfig })
   };
 }

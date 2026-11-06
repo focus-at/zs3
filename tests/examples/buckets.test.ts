@@ -99,7 +99,8 @@ describe("bucket examples", () => {
     const result = await response.json();
 
     expect(requests[0].url.pathname).toBe("/");
-    expect(result.Buckets.Name).toBe("demo-bucket"); // FIXME Buckets -> Bucket ?
+    console.log(result);
+    expect(result.Buckets.Bucket.Name).toBe("demo-bucket"); // FIXME Buckets -> Bucket ?
     expect(result.Owner.ID).toBe("owner-1");
   });
 
