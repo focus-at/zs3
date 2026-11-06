@@ -64,12 +64,11 @@ export const handler = (res: Response) => {
   return assign(res, {
     json: async () => {
       const reader = res.body?.getReader();
-      const data = {};
-      const stack = [{ node: data, key: "" }];
+      const stack = [{ data: {}, key: "" }];
       const str = (s: number, e: number) => decoder.decode(buf.subarray(s, e)).trim();
 
       let buf = new Uint8Array(64 * 1024);
-      let bufLen = 0, cursor = 0, textStart = -1, key = "";
+      let bufLen = 0, cursor = 0, textStart = -1;
       let chunk;
 
       while (!(chunk = await reader?.read())?.done) {
@@ -102,8 +101,8 @@ export const handler = (res: Response) => {
 
             const tag = str(start, end);
 
-            if (!key && !isClose) {
-              key = tag;
+            if (!stack[0].key && !isClose) {
+              stack[0].key = tag;
               cursor = end + 1;
               continue;
             }
@@ -116,15 +115,15 @@ export const handler = (res: Response) => {
                 const parent = stack[stack.length - 2];
 
                 if (parent) {
-                  const siblings = parent.node[frame.key];
+                  const siblings = parent.data[frame.key];
                   if (Array.isArray(siblings)) siblings[siblings.length - 1] = value;
-                  else parent.node[frame.key] = value;
+                  else parent.data[frame.key] = value;
                 }
               }
               if (stack.length > 1) stack.pop();
               textStart = -1;
             } else {
-              const current = stack[stack.length - 1].node;
+              const current = stack[stack.length - 1].data;
               const node = {};
               const previous = current[tag];
 
@@ -132,7 +131,7 @@ export const handler = (res: Response) => {
               else if (Array.isArray(previous)) previous.push(node);
               else current[tag] = [previous, node];
 
-              stack.push({ node, key: tag });
+              stack.push({ data: node, key: tag });
               textStart = end + 1;
             }
             cursor = end + 1;
@@ -152,7 +151,7 @@ export const handler = (res: Response) => {
         }
       }
 
-      return { key, data };
+      return stack[0];
     }
   });
 }
