@@ -65,7 +65,7 @@ export const handler = (res: Response) => {
     json: async () => {
       const reader = res.body?.getReader();
       const data = {};
-      const stack = [data];
+      const stack = [{ node: data, key: "" }];
       const str = (s: number, e: number) => decoder.decode(buf.subarray(s, e)).trim();
 
       let buf = new Uint8Array(64 * 1024);
@@ -73,70 +73,83 @@ export const handler = (res: Response) => {
       let chunk;
 
       while (!(chunk = await reader?.read())?.done) {
-          const value = chunk?.value;
+        const value = chunk?.value;
+        const required = bufLen + value.length;
 
-          buf.set(value, bufLen);
-          bufLen += value.length;
+        if (required > buf.length) {
+          const next = new Uint8Array(Math.max(required, buf.length * 2));
+          next.set(buf.subarray(0, bufLen));
+          buf = next;
+        }
 
-          while (cursor < bufLen) {
-              if (buf[cursor] === LT) { // '<'
-                let end = cursor + 1;
-                while (end < bufLen && buf[end] !== GT) end++; // '>'
-                if (end === bufLen) break;
+        buf.set(value, bufLen);
+        bufLen = required;
 
-                let start = cursor + 1;
-                const isClose = buf[start] === SLASH;
-                if (isClose) start++;
+        while (cursor < bufLen) {
+          if (buf[cursor] === LT) { // '<'
+            let end = cursor + 1;
+            while (end < bufLen && buf[end] !== GT) end++; // '>'
+            if (end === bufLen) break;
 
-                if (buf[start] === QUEST || buf[start] === EXCL) {
-                  cursor = end + 1;
-                  continue;
+            let start = cursor + 1;
+            const isClose = buf[start] === SLASH;
+            if (isClose) start++;
+
+            if (buf[start] === QUEST || buf[start] === EXCL) {
+              cursor = end + 1;
+              continue;
+            }
+
+            const tag = str(start, end);
+
+            if (!key && !isClose) {
+              key = tag;
+              cursor = end + 1;
+              continue;
+            }
+
+            if (isClose) {
+              if (textStart !== -1 && cursor > textStart) {
+                const text = str(textStart, cursor);
+                const value = TYPES[text] ?? (isNaN(+text) ? text : +text);
+                const frame = stack[stack.length - 1];
+                const parent = stack[stack.length - 2];
+
+                if (parent) {
+                  const siblings = parent.node[frame.key];
+                  if (Array.isArray(siblings)) siblings[siblings.length - 1] = value;
+                  else parent.node[frame.key] = value;
                 }
-
-                const tag = str(start, end);
-
-                if (!key && !isClose) {
-                  key = tag;
-                  cursor = end + 1;
-                  continue;
-                }
-
-                const current = stack[stack.length - 1];
-
-                if (isClose) {
-                    // TEXT
-                    if (textStart !== -1 && cursor > textStart) {
-                        const text = str(textStart, cursor);
-                        const value = TYPES[text] ?? (isNaN(+text) ? text : +text);
-
-                        const parent = stack[stack.length - 2];
-                        const k = Object.keys(parent).find(p => parent[p] === current || (Array.isArray(parent[p]) && parent[p].includes(current)));
-
-                        if (Array.isArray(parent[k])) parent[k][parent[k].length - 1] = value;
-                        else parent[k] = value;
-                    }
-                    if (stack.length > 1) stack.pop();
-                    textStart = -1;
-                  // NODE
-                  } else {
-                      const node = {};
-                      current[tag] = current[tag] !== undefined
-                          ? (Array.isArray(current[tag]) ? [...current[tag], node] : [current[tag], node])
-                          : node;
-                      stack.push(node);
-                      textStart = end + 1;
-                  }
-                  cursor = end + 1;
-              } else {
-                  cursor++;
               }
-          }
+              if (stack.length > 1) stack.pop();
+              textStart = -1;
+            } else {
+              const current = stack[stack.length - 1].node;
+              const node = {};
+              const previous = current[tag];
 
-          if (cursor > 0) {
-              buf.set(buf.subarray(cursor, bufLen));
-              bufLen -= cursor;
-              cursor = 0;
+              if (previous === undefined) current[tag] = node;
+              else if (Array.isArray(previous)) previous.push(node);
+              else current[tag] = [previous, node];
+
+              stack.push({ node, key: tag });
+              textStart = end + 1;
+            }
+            cursor = end + 1;
+          } else {
+            cursor++;
           }
+        }
+
+        // Keep the current text bytes until its closing tag so UTF-8 characters
+        // split across stream chunks are decoded together.
+        const keep = textStart === -1 ? cursor : textStart;
+        if (keep > 0) {
+          buf.copyWithin(0, keep, bufLen);
+          bufLen -= keep;
+          cursor -= keep;
+          if (textStart !== -1) textStart -= keep;
+        }
       }
 
       return { key, data };
