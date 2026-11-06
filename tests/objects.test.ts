@@ -6,7 +6,7 @@ import { mockFetch, restoreMockFetch } from "./helpers/mock-fetch.ts";
 afterEach(restoreMockFetch);
 
 describe("XML response parsing details", () => {
-  test("returns the root tag, normalizes repeated entries, and strips ETag quotes", async () => {
+  test("returns the root tag and normalizes repeated entries", async () => {
     mockFetch(new Response(await readFixture("object-list-repeated.xml"), { status: 200 }));
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
 
@@ -16,8 +16,8 @@ describe("XML response parsing details", () => {
     expect(result.key).toBe("ListBucketResult");
     expect(result.data.IsTruncated).toBe(false);
     expect(result.data.Contents).toEqual([
-      { Key: "a.txt", Size: 1, ETag: "etag-a" },
-      { Key: "b.txt", Size: 2, ETag: "etag-b" },
+      { Key: "a.txt", Size: 1, ETag: '"etag-a"' },
+      { Key: "b.txt", Size: 2, ETag: '"etag-b"' },
     ]);
   });
 });

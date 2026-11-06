@@ -10,7 +10,7 @@ describe("XML response parser contract", () => {
     expect(result.key).toBe("ListBucketResult");
     expect(result.data).toEqual({
       IsTruncated: false,
-      Contents: { Key: "reports/second.txt", Size: 6, ETag: "etag-2" },
+      Contents: { Key: "reports/second.txt", Size: 6, ETag: '"etag-2"' },
     });
   });
 

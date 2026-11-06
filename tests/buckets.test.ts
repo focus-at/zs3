@@ -7,7 +7,7 @@ afterEach(restoreMockFetch);
 
 describe("bucket-level client request signing", () => {
   test("signs a bucket listing request and parses its XML response envelope", async () => {
-    mockFetch(new Response(await readFixture("bucket-list.xml"), { status: 200 }));
+    const requests = mockFetch(new Response(await readFixture("bucket-list.xml"), { status: 200 }));
     const client = zs3({ endpoint: "https://s3.example.test", accessKeyId: "key", secretAccessKey: "secret" });
 
     const response = await client.exec({ method: "GET" });

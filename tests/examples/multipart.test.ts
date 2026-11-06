@@ -28,10 +28,24 @@ describe("multipart example", () => {
     const api = client();
 
     const initiated = await initiateMultipartUpload(api);
-    expect((await initiated.json()).UploadId).toBe("upload-123");
+    const initiatedResult = await initiated.json();
+    expect(initiatedResult.key).toBe("InitiateMultipartUploadResult");
+    expect(initiatedResult.data.UploadId).toBe("upload-123");
+
     await uploadPart(api, "upload-123", 1, "part data");
-    await listParts(api, "upload-123");
-    await completeMultipartUpload(api, "upload-123", [{ partNumber: 1, etag: "part-etag" }]);
+
+    const partsResponse = await listParts(api, "upload-123");
+    const partsResult = await partsResponse.json();
+    expect(partsResult.key).toBe("ListPartsResult");
+    expect(partsResult.data.UploadId).toBe("upload-123");
+    expect(partsResult.data.Part.PartNumber).toBe(1);
+
+    const completeResponse = await completeMultipartUpload(api, "upload-123", [{ partNumber: 1, etag: "part-etag" }]);
+    const completeResult = await completeResponse.json();
+    expect(completeResult.key).toBe("CompleteMultipartUploadResult");
+    expect(completeResult.data.Bucket).toBe("demo-bucket");
+    expect(completeResult.data.Key).toBe("large-archive.zip");
+
     await abortMultipartUpload(api, "upload-123");
 
     expect(requests.map(({ init }) => init.method)).toEqual(["POST", "PUT", "GET", "POST", "DELETE"]);
