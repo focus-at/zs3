@@ -96,12 +96,13 @@ describe("bucket examples", () => {
   test("lists buckets and parses the ListAllMyBucketsResult fixture", async () => {
     const requests = mockFetch(new Response(await readFixture("bucket-list.xml"), { status: 200 }));
     const response = await listBuckets(client());
-    const result = await response.json();
+    const { key, data } = await response.json();
+
 
     expect(requests[0].url.pathname).toBe("/");
-    console.log(result);
-    expect(result.Buckets.Bucket.Name).toBe("demo-bucket"); // FIXME Buckets -> Bucket ?
-    expect(result.Owner.ID).toBe("owner-1");
+    expect(key).toBe("ListAllMyBucketsResult");
+    expect(data.Buckets.Bucket[0].Name).toBe("demo-bucket"); // FIXME Buckets -> Bucket ?
+    expect(data.Owner.ID).toBe("owner-1");
   });
 
   test("creates and deletes the example bucket", async () => {

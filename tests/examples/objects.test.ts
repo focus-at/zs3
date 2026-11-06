@@ -48,7 +48,6 @@ describe("object examples", () => {
       new Response(await readFixture("object-list-page-2.xml"), { status: 200 }),
     );
     const pages = await listAllPages(client());
-
     expect(pages).toHaveLength(2);
     expect(pages[0].Contents[0].Key).toBe("reports/first.txt");
     expect(pages[1].Contents[0].Key).toBe("reports/second.txt");
@@ -73,15 +72,15 @@ describe("object examples", () => {
     const prefix = "reports/";
 
     const versionsResponse = await listObjectVersions(api, prefix);
-    const versions = await versionsResponse.json();
-    expect(versions.VersionId).toBe("version-123");
-    expect(versions.Key).toBe("reports/annual.pdf");
+    const { key, data } = await versionsResponse.json();
+
+    expect(data.Version.VersionId).toBe("version-123");
+    expect(data.Version.Key).toBe("reports/annual.pdf");
     expect(requests[0].url.searchParams.has("versions")).toBe(true);
     expect(requests[0].url.searchParams.get("prefix")).toBe(prefix);
 
 
-    const key = "reports/annual.pdf";
-    const objectResponse = await getObjectVersion(api, key, "version-123");
+    const objectResponse = await getObjectVersion(api, "reports/annual.pdf", "version-123");
     expect(await objectResponse.text()).toBe("version data");
 
     expect(requests[1].url.pathname).toBe("/demo-bucket/reports/annual.pdf");
