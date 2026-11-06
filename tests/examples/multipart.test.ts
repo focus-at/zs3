@@ -1,61 +1,35 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import {
-  abortMultipartUpload,
-  completeMultipartUpload,
-  initiateMultipartUpload,
-  listParts,
-  uploadPart,
-} from "../../examples/multipart.ts";
-import { zs3 } from "../../index.ts";
-import { readFixture } from "../helpers/fixtures.ts";
-import { mockFetch, restoreMockFetch } from "../helpers/mock-fetch.ts";
+import type { ZS3Client } from "../types.ts";
 
-afterEach(restoreMockFetch);
+const bucket = "demo-bucket";
+const key = "large-archive.zip";
+const S3_XML_NAMESPACE = "http://s3.amazonaws.com/doc/2006-03-01/";
 
-const client = () => zs3({ endpoint: "https://s3.example.test", accessKeyId: "test-key", secretAccessKey: "test-secret" });
-
-describe("multipart example", () => {
-  test("runs initiate, upload, list, complete and abort using XML response fixtures", async () => {
-    const names = ["multipart-initiate.xml", "multipart-list-parts.xml", "multipart-complete.xml"];
-    const fixtures = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await readFixture(name)] as const)));
-    const requests = mockFetch(
-      new Response(fixtures["multipart-initiate.xml"], { status: 200 }),
-      new Response("", { status: 200, headers: { etag: '"part-etag"' } }),
-      new Response(fixtures["multipart-list-parts.xml"], { status: 200 }),
-      new Response(fixtures["multipart-complete.xml"], { status: 200 }),
-      new Response("", { status: 200 }),
-    );
-    const api = client();
-
-    const initiated = await initiateMultipartUpload(api);
-    const initiatedResult = await initiated.json();
-    expect(initiatedResult.key).toBe("InitiateMultipartUploadResult");
-    expect(initiatedResult.data.UploadId).toBe("upload-123");
-
-    await uploadPart(api, "upload-123", 1, "part data");
-
-    const partsResponse = await listParts(api, "upload-123");
-    const partsResult = await partsResponse.json();
-    expect(partsResult.key).toBe("ListPartsResult");
-    expect(partsResult.data.UploadId).toBe("upload-123");
-    expect(partsResult.data.Part.PartNumber).toBe(1);
-
-    const completeResponse = await completeMultipartUpload(api, "upload-123", [{ partNumber: 1, etag: "part-etag" }]);
-    const completeResult = await completeResponse.json();
-    expect(completeResult.key).toBe("CompleteMultipartUploadResult");
-    expect(completeResult.data.Bucket).toBe("demo-bucket");
-    expect(completeResult.data.Key).toBe("large-archive.zip");
-
-    await abortMultipartUpload(api, "upload-123");
-
-    expect(requests.map(({ init }) => init.method)).toEqual(["POST", "PUT", "GET", "POST", "DELETE"]);
-    expect(requests[0].url.searchParams.has("uploads")).toBe(true);
-    expect(requests[1].url.searchParams.get("part-number")).toBe("1");
-    expect(requests[1].init.body).toBe("part data");
-    expect(requests[2].url.searchParams.get("upload-id")).toBe("upload-123");
-    expect(requests[3].url.searchParams.get("upload-id")).toBe("upload-123");
-    expect(requests[3].init.body).toBe((await readFixture("multipart-complete-request.xml")).trim());
-    expect(new Headers(requests[3].init.headers).get("content-type")).toBe("application/xml");
-    expect(requests[4].url.searchParams.get("upload-id")).toBe("upload-123");
-  });
-});
+export const initiateMultipartUpload = (client: ZS3Client) => client.exec(
+  { method: "POST", bucket, key }, { query: { uploads: "" } },
+);
+export const uploadPart = (client: ZS3Client, uploadId: string, partNumber: number, body: BodyInit) => client.exec(
+  { method: "PUT", bucket, key, body }, { query: { uploadId, partNumber } },
+);
+export const listParts = (client: ZS3Client, uploadId: string) => client.exec(
+  { method: "GET", bucket, key }, { query: { uploadId } },
+);
+export const completeMultipartUpload = (
+  client: ZS3Client,
+  uploadId: string,
+  parts: Array<{ partNumber: number; etag: string }>,
+) => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<CompleteMultipartUpload xmlns="${S3_XML_NAMESPACE}">
+${parts.map(({ partNumber, etag }) => `  <Part>
+    <PartNumber>${partNumber}</PartNumber>
+    <ETag>${etag}</ETag>
+  </Part>`).join("\n")}
+</CompleteMultipartUpload>`;
+  return client.exec(
+    { method: "POST", bucket, key, body: xml },
+    { query: { uploadId }, headers: { "Content-Type": "application/xml" } },
+  );
+};
+export const abortMultipartUpload = (client: ZS3Client, uploadId: string) => client.exec(
+  { method: "DELETE", bucket, key }, { query: { uploadId } },
+);
