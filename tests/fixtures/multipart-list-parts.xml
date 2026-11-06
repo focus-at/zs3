@@ -1,1 +1,16 @@
-<ListPartsResult><Bucket>demo-bucket</Bucket><Key>large-archive.zip</Key><UploadId>upload-123</UploadId><Part><PartNumber>1</PartNumber><ETag>"part-etag"</ETag><Size>9</Size></Part></ListPartsResult>
+<?xml version="1.0" encoding="UTF-8"?>
+<ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Bucket>demo-bucket</Bucket>
+  <Key>large-archive.zip</Key>
+  <UploadId>upload-123</UploadId>
+  <PartNumberMarker>0</PartNumberMarker>
+  <NextPartNumberMarker>1</NextPartNumberMarker>
+  <MaxParts>1000</MaxParts>
+  <IsTruncated>false</IsTruncated>
+  <Part>
+    <PartNumber>1</PartNumber>
+    <LastModified>2026-11-06T12:00:00.000Z</LastModified>
+    <ETag>"part-etag"</ETag>
+    <Size>9</Size>
+  </Part>
+</ListPartsResult>

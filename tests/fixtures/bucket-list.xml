@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ListAllMyBucketsResult>
-  <Owner><ID>owner-1</ID><DisplayName>Test Owner</DisplayName></Owner>
+<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Owner>
+    <ID>owner-1</ID>
+    <DisplayName>Test Owner</DisplayName>
+  </Owner>
   <Buckets>
-      <Bucket><Name>demo-bucket</Name><CreationDate>2026-01-01T00:00:00.000Z</CreationDate></Bucket>
-      <Bucket><Name>demo-bucket</Name><CreationDate>2026-01-01T00:00:00.000Z</CreationDate></Bucket>
+    <!--include:bucket-list-entry.xml-->
   </Buckets>
 </ListAllMyBucketsResult>

@@ -1,1 +1,14 @@
-<ReplicationConfiguration><Role>arn:aws:iam::123456789012:role/replication</Role><Rule><Status>Enabled</Status><Destination><Bucket>arn:aws:s3:::replica-bucket</Bucket></Destination></Rule></ReplicationConfiguration>
+<?xml version="1.0" encoding="UTF-8"?>
+<ReplicationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Role>arn:aws:iam::123456789012:role/replication</Role>
+  <Rule>
+    <ID>replicate-reports</ID>
+    <Status>Enabled</Status>
+    <Filter>
+      <Prefix>reports/</Prefix>
+    </Filter>
+    <Destination>
+      <Bucket>arn:aws:s3:::replica-bucket</Bucket>
+    </Destination>
+  </Rule>
+</ReplicationConfiguration>

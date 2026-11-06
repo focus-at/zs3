@@ -1,1 +1,9 @@
-<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>a.txt</Key><Size>1</Size><ETag>"etag-a"</ETag></Contents><Contents><Key>b.txt</Key><Size>2</Size><ETag>"etag-b"</ETag></Contents></ListBucketResult>
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Name>demo-bucket</Name>
+  <Prefix>reports/</Prefix>
+  <KeyCount>2</KeyCount>
+  <MaxKeys>1000</MaxKeys>
+  <IsTruncated>false</IsTruncated>
+  <!--include:object-list-contents.xml-->
+</ListBucketResult>
