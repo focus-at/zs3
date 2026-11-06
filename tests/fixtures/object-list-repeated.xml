@@ -1,0 +1,1 @@
+<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>a.txt</Key><Size>1</Size><ETag>"etag-a"</ETag></Contents><Contents><Key>b.txt</Key><Size>2</Size><ETag>"etag-b"</ETag></Contents></ListBucketResult>
