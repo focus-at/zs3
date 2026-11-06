@@ -1,0 +1,81 @@
+{
+  "name": "@focus-at/zs3",
+  "version": "0.1.0",
+  "description": "Zero-dependency 3 KB S3 client built on Web Standards for AWS, Edge, Cloudflare Workers, Bun, Node, and browser runtimes.",
+  "homepage": "https://github.com/focus-at/zs3",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./types.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "bun build --minify --sourcemap ./index.ts --outdir=dist",
+    "patch": "npm version patch",
+    "tags": "git push origin main --tags",
+    "postinstall": "node -e \"if(!process.env.DISABLE_OPENCOLLECTIVE && !process.env.CI){process.stdout.write('\\u001b[35mThanks for installing ZeroS3! Consider giving it a star on GitHub: https://github.com/focus-at/zs3\\u001b[0m\\n')}\""
+  },
+  "keywords": [
+    "s3",
+    "zs3",
+    "zeros3",
+    "zero",
+    "aws",
+    "amazon",
+    "byos3",
+    "whip",
+    "client",
+    "fetch",
+    "crypto",
+    "subtle",
+    "stream",
+    "edge",
+    "workers",
+    "cloudflare",
+    "browser",
+    "tiny",
+    "micro",
+    "mini",
+    "light",
+    "esm",
+    "raw",
+    "tree-shakable",
+    "no dependencies"
+  ],
+  "author": "Dmitry Zimin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:focus-at/zs3.git"
+  },
+  "bugs": {
+    "url": "https://github.com/issues"
+  },
+  "funding": [
+    {
+      "type": "yoomoney",
+      "url": "https://yoomoney.ru/to/41001733075084"
+    }
+  ],
+  "files": [
+    "dist",
+    "index.ts",
+    "types.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {},
+  "devDependencies": {},
+  "peerDependencies": {
+    "typescript": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}

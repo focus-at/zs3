@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GetObjectAttributesOutput xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <ETag>"object-etag"</ETag>
+  <Checksum>
+    <ChecksumSHA256>YWJjZA==</ChecksumSHA256>
+  </Checksum>
+  <ObjectParts>
+    <IsTruncated>false</IsTruncated>
+    <Part>
+      <PartNumber>1</PartNumber>
+      <Size>5</Size>
+    </Part>
+  </ObjectParts>
+  <StorageClass>STANDARD</StorageClass>
+  <ObjectSize>5</ObjectSize>
+</GetObjectAttributesOutput>

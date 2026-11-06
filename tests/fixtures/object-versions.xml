@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListVersionsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Name>demo-bucket</Name>
+  <Prefix>logs/</Prefix>
+  <KeyMarker></KeyMarker>
+  <VersionIdMarker></VersionIdMarker>
+  <MaxKeys>1000</MaxKeys>
+  <IsTruncated>false</IsTruncated>
+  <!--include:partials/versions/app-current.xml-->
+  <!--include:partials/versions/old-config-delete-marker.xml-->
+  <!--include:partials/versions/app-previous.xml-->
+</ListVersionsResult>

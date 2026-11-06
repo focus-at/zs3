@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NotificationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <QueueConfiguration>
+    <Id>object-created-events</Id>
+    <Queue>arn:aws:sqs:us-east-1:123456789012:events</Queue>
+    <Event>s3:ObjectCreated:*</Event>
+  </QueueConfiguration>
+</NotificationConfiguration>

@@ -1,0 +1,10 @@
+<Version>
+  <Key>logs/app.log</Key>
+  <VersionId>3/L4bE3wh96asdjhSRE9ac82hfjw93f8</VersionId>
+  <IsLatest>true</IsLatest>
+  <LastModified>2026-11-06T15:30:00.000Z</LastModified>
+  <ETag>"b10a8db164e0754105b7a99be72e3fe5"</ETag>
+  <Size>12450</Size>
+  <StorageClass>STANDARD</StorageClass>
+  <!--include:../owners/project-owner.xml-->
+</Version>

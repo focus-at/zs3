@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Name>demo-bucket</Name>
+  <Prefix>reports/</Prefix>
+  <KeyCount>2</KeyCount>
+  <MaxKeys>1000</MaxKeys>
+  <IsTruncated>false</IsTruncated>
+  <!--include:partials/objects/object-a.xml-->
+  <!--include:partials/objects/object-b.xml-->
+</ListBucketResult>

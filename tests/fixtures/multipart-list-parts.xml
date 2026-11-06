@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Bucket>demo-bucket</Bucket>
+  <Key>large-archive.zip</Key>
+  <UploadId>upload-123</UploadId>
+  <PartNumberMarker>0</PartNumberMarker>
+  <NextPartNumberMarker>2</NextPartNumberMarker>
+  <MaxParts>1000</MaxParts>
+  <IsTruncated>false</IsTruncated>
+  <!--include:partials/objects/multipart-part-1.xml-->
+  <!--include:partials/objects/multipart-part-2.xml-->
+</ListPartsResult>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Rule>
+    <ID>expire-old-reports</ID>
+    <Filter>
+      <Prefix>reports/</Prefix>
+    </Filter>
+    <Status>Enabled</Status>
+    <Expiration>
+      <Days>90</Days>
+    </Expiration>
+  </Rule>
+</LifecycleConfiguration>
