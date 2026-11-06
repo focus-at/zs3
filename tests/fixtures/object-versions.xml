@@ -6,40 +6,7 @@
   <VersionIdMarker></VersionIdMarker>
   <MaxKeys>1000</MaxKeys>
   <IsTruncated>false</IsTruncated>
-  <Version>
-    <Key>logs/app.log</Key>
-    <VersionId>3/L4bE3wh96asdjhSRE9ac82hfjw93f8</VersionId>
-    <IsLatest>true</IsLatest>
-    <LastModified>2026-11-06T15:30:00.000Z</LastModified>
-    <ETag>"b10a8db164e0754105b7a99be72e3fe5"</ETag>
-    <Size>12450</Size>
-    <StorageClass>STANDARD</StorageClass>
-    <Owner>
-      <ID>owner-id-123</ID>
-      <DisplayName>ProjectOwner</DisplayName>
-    </Owner>
-  </Version>
-  <DeleteMarker>
-    <Key>logs/old-config.json</Key>
-    <VersionId>03asjD93kWls91ghSJD92jGls928fH</VersionId>
-    <IsLatest>true</IsLatest>
-    <LastModified>2026-11-05T12:00:00.000Z</LastModified>
-    <Owner>
-      <ID>owner-id-123</ID>
-      <DisplayName>ProjectOwner</DisplayName>
-    </Owner>
-  </DeleteMarker>
-  <Version>
-    <Key>logs/app.log</Key>
-    <VersionId>m93jGls928fH03asjD93kWls91ghSJD</VersionId>
-    <IsLatest>false</IsLatest>
-    <LastModified>2026-11-04T10:00:00.000Z</LastModified>
-    <ETag>"70ee1738b6b21e2c8a43f3a5ab0eee71"</ETag>
-    <Size>10200</Size>
-    <StorageClass>STANDARD</StorageClass>
-    <Owner>
-      <ID>owner-id-123</ID>
-      <DisplayName>ProjectOwner</DisplayName>
-    </Owner>
-  </Version>
+  <!--include:partials/versions/app-current.xml-->
+  <!--include:partials/versions/old-config-delete-marker.xml-->
+  <!--include:partials/versions/app-previous.xml-->
 </ListVersionsResult>

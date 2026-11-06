@@ -5,11 +5,5 @@
   <KeyCount>1</KeyCount>
   <MaxKeys>1000</MaxKeys>
   <IsTruncated>false</IsTruncated>
-  <Contents>
-    <Key>reports/second.txt</Key>
-    <LastModified>2026-11-06T12:05:00.000Z</LastModified>
-    <ETag>"etag-2"</ETag>
-    <Size>6</Size>
-    <StorageClass>STANDARD</StorageClass>
-  </Contents>
+  <!--include:partials/objects/report-second.xml-->
 </ListBucketResult>

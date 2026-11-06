@@ -5,5 +5,6 @@
   <KeyCount>2</KeyCount>
   <MaxKeys>1000</MaxKeys>
   <IsTruncated>false</IsTruncated>
-  <!--include:object-list-contents.xml-->
+  <!--include:partials/objects/object-a.xml-->
+  <!--include:partials/objects/object-b.xml-->
 </ListBucketResult>

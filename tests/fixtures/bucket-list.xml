@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-  <Owner>
-    <ID>owner-1</ID>
-    <DisplayName>Test Owner</DisplayName>
-  </Owner>
+  <!--include:partials/owners/test-owner.xml-->
   <Buckets>
-    <!--include:bucket-list-entry.xml-->
+    <!--include:partials/buckets/demo-bucket.xml-->
+    <!--include:partials/buckets/archive-bucket.xml-->
   </Buckets>
 </ListAllMyBucketsResult>

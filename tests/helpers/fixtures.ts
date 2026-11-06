@@ -26,8 +26,10 @@ async function readExpandedFixture(url: URL, includeStack: string[]): Promise<st
   let expanded = contents;
   for (const directive of directives.reverse()) {
     const [placeholder, includeName] = directive;
-    const includeURL = fixtureURL(includeName.trim(), url);
-    const replacement = await readExpandedFixture(includeURL, [...includeStack, url.href]);
+    const replacement = await readExpandedFixture(
+      fixtureURL(includeName.trim(), url),
+      [...includeStack, url.href],
+    );
     const start = directive.index!;
     expanded = expanded.slice(0, start) + replacement + expanded.slice(start + placeholder.length);
   }
@@ -35,7 +37,7 @@ async function readExpandedFixture(url: URL, includeStack: string[]): Promise<st
   return expanded;
 }
 
-/** Read a fixture, expanding <!--include:filename.xml--> directives recursively. */
+/** Read a fixture, recursively expanding <!--include:relative-file.xml--> directives. */
 export async function readFixture(name: string): Promise<string> {
   return readExpandedFixture(fixtureURL(name), []);
 }

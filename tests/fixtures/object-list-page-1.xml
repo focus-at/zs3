@@ -2,19 +2,10 @@
 <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
   <Name>demo-bucket</Name>
   <Prefix>reports/</Prefix>
-  <KeyCount>1</KeyCount>
-  <MaxKeys>1</MaxKeys>
+  <KeyCount>2</KeyCount>
+  <MaxKeys>1000</MaxKeys>
   <IsTruncated>true</IsTruncated>
-  <Contents>
-    <Key>reports/first.txt</Key>
-    <LastModified>2026-11-06T12:00:00.000Z</LastModified>
-    <ETag>"etag-1"</ETag>
-    <Size>5</Size>
-    <StorageClass>STANDARD</StorageClass>
-    <Owner>
-      <ID>owner-1</ID>
-      <DisplayName>Test Owner</DisplayName>
-    </Owner>
-  </Contents>
+  <!--include:partials/objects/report-first.xml-->
+  <!--include:partials/objects/report-second.xml-->
   <NextContinuationToken>page-2-token</NextContinuationToken>
 </ListBucketResult>
