@@ -16,8 +16,8 @@ describe("XML response parsing details", () => {
     expect(result.key).toBe("ListBucketResult");
     expect(result.data.IsTruncated).toBe(false);
     expect(result.data.Contents).toEqual([
-      { Key: "a.txt", Size: 1, ETag: 'etag-a' },
-      { Key: "b.txt", Size: 2, ETag: 'etag-b' },
+      { ETag: "etag-a", Key: "a.txt", Size: 1, LastModified: "2026-11-06T12:00:00.000Z",  StorageClass: "STANDARD" },
+      { ETag: "etag-b", Key: "b.txt", Size: 2, LastModified: "2026-11-06T12:01:00.000Z",  StorageClass: "STANDARD" },
     ]);
   });
 });

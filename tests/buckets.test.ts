@@ -16,7 +16,7 @@ describe("bucket-level client request signing", () => {
     expect(result.key).toBe("ListAllMyBucketsResult");
     expect(result.data.Owner.ID).toBe("owner-1");
     expect(result.data.Buckets.Bucket[0].Name).toBe("demo-bucket");
-    expect(result.data.Buckets.Bucket[1].Name).toBe("demo-bucket");
+    expect(result.data.Buckets.Bucket[1].Name).toBe("archive-bucket");
     expect(requests[0].url.searchParams.get("list-type")).toBe("2");
     expect(requests[0].url.searchParams.get("max-keys")).toBe("1000");
     expect(new Headers(requests[0].init.headers).get("authorization")).toContain("AWS4-HMAC-SHA256");
