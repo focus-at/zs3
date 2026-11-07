@@ -1,10 +1,18 @@
 const encoder = new TextEncoder();
 
-function xmlResponse(xml: string): Response {
+function xmlResponse(xml: string, CHUNK_SIZE = 32 * 1024): Response {
   const bytes = encoder.encode(xml);
+
   return new Response(new ReadableStream({
     start(controller) {
-      controller.enqueue(bytes);
+      let offset = 0;
+
+      while (offset < bytes.length) {
+        const chunk = bytes.subarray(offset, offset + CHUNK_SIZE);
+        controller.enqueue(chunk);
+        offset += CHUNK_SIZE;
+      }
+
       controller.close();
     },
   }));
